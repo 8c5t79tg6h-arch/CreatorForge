@@ -7,15 +7,14 @@ async function main() {
   const page = await browser.newPage();
 
   await page.goto(`${BASE}/dashboard/projects`);
-  await page.fill('input[placeholder="Project name"]', "Stage 4 Project");
+  await page.fill('input[placeholder="New project name"]', "Stage 4 Project");
   await page.fill('input[placeholder="Short description"]', "Persistence check");
-  await page.getByRole("button", { name: /create project/i }).click();
+  await page.getByRole("button", { name: /^create$/i }).click();
   await page.waitForSelector("text=Stage 4 Project");
 
   await page.goto(`${BASE}/dashboard/tools/content-idea-generator`);
   await page.fill('input[placeholder*="indie SaaS"]', "local storage saves");
-  await page.selectOption("select", { label: "Stage 4 Project" }).catch(() => undefined);
-  // Choose project by last select on the form
+  // Choose project by last select on the form (save destination)
   const selects = page.locator("select");
   const count = await selects.count();
   if (count > 0) {
@@ -28,7 +27,8 @@ async function main() {
 
   await page.goto(`${BASE}/dashboard/projects`);
   await page.getByRole("link", { name: /open/i }).first().click();
-  await page.waitForSelector("text=Saved content");
+  await page.waitForSelector("text=Refine with AI");
+  await page.waitForSelector("text=Version history");
   console.log("stage4-verify: persistence ok");
 
   await browser.close();
