@@ -1,5 +1,6 @@
 import { createId } from "./id";
 import {
+  type ContentStatus,
   type ContentVersion,
   type PersistedContent,
   type PersistedContentKind,
@@ -24,6 +25,7 @@ export type SaveContentInput = {
   createVersion?: boolean;
   versionSource?: VersionSource;
   versionLabel?: string;
+  contentStatus?: ContentStatus;
 };
 
 export function listContents(
@@ -96,6 +98,13 @@ export function saveContent(input: SaveContentInput): PersistedContent {
       );
     }
 
+    const inferredStatus: ContentStatus =
+      input.versionSource === "refine"
+        ? "refined"
+        : previous.contentStatus === "draft" && shouldVersion
+          ? "in_progress"
+          : previous.contentStatus;
+
     const next = {
       ...previous,
       kind: input.kind,
@@ -104,6 +113,7 @@ export function saveContent(input: SaveContentInput): PersistedContent {
       payload: input.payload,
       updatedAt: stamp,
       versions,
+      contentStatus: input.contentStatus ?? inferredStatus,
     } as PersistedContent;
 
     snapshot.contents[existingIndex] = next;
@@ -131,6 +141,7 @@ export function saveContent(input: SaveContentInput): PersistedContent {
     updatedAt: stamp,
     payload: input.payload,
     versions: [initialVersion],
+    contentStatus: input.contentStatus ?? "draft",
   } as PersistedContent;
 
   snapshot.contents.push(base);

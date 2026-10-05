@@ -9,7 +9,11 @@ async function main() {
   await page.goto(`${BASE}/dashboard/projects`);
   await page.fill('input[placeholder="New project name"]', "Stage 4 Project");
   await page.fill('input[placeholder="Short description"]', "Persistence check");
-  await page.getByRole("button", { name: /^create$/i }).click();
+  await page.getByRole("button", { name: /create/i }).click();
+  await page.waitForURL(/\/dashboard\/projects\//);
+  await page.waitForSelector("text=Workspace");
+  // Navigate back to list to continue the save flow from a tool
+  await page.goto(`${BASE}/dashboard/projects`);
   await page.waitForSelector("text=Stage 4 Project");
 
   await page.goto(`${BASE}/dashboard/tools/content-idea-generator`);

@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { SaveDestination } from "@/components/tools/SaveDestination";
 import { useProjects } from "@/hooks/useProjects";
 import { regenerateContentIdea } from "@/lib/domain/contentIdeaGenerator";
 import type {
@@ -50,6 +51,9 @@ export function ContentIdeaGeneratorTool() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [lastSavedProjectId, setLastSavedProjectId] = useState<string | null>(
+    null,
+  );
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
   const [projectId, setProjectId] = useState("");
   const [input, setInput] = useState<ContentIdeaInput>({
@@ -106,13 +110,15 @@ export function ContentIdeaGeneratorTool() {
   }
 
   function onSave(idea: ContentIdea) {
-    saveByKind(
+    const saved = saveByKind(
       "content-idea",
       idea.title,
       { input, ideas: [idea] },
       projectId || null,
     );
-    setStatus(`Saved “${idea.title}”`);
+    setProjectId(saved.projectId);
+    setLastSavedProjectId(saved.projectId);
+    setStatus(`Saved “${idea.title}” to project`);
   }
 
   function onRegenerate(idea: ContentIdea) {
@@ -210,23 +216,13 @@ export function ContentIdeaGeneratorTool() {
             onChange={(e) => update("count", Number(e.target.value))}
           />
         </label>
-        <label className="space-y-1.5 md:col-span-2">
-          <span className="text-sm font-semibold text-ink">
-            Save destination project (optional)
-          </span>
-          <select
-            className={fieldClass}
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-          >
-            <option value="">Unassigned</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SaveDestination
+          projects={projects}
+          projectId={projectId}
+          onProjectIdChange={setProjectId}
+          lastSavedProjectId={lastSavedProjectId}
+          statusMessage={status}
+        />
         <div className="md:col-span-2">
           <Button type="submit" disabled={!canSubmit}>
             {pending ? "Generating…" : "Generate ideas"}
@@ -239,7 +235,6 @@ export function ContentIdeaGeneratorTool() {
           {error}
         </p>
       ) : null}
-      {status ? <p className="text-sm text-muted">{status}</p> : null}
 
       {pending && ideas.length === 0 ? (
         <p className="text-sm text-muted">Forging ideas…</p>

@@ -9,6 +9,7 @@ import { ContentIdeaEditor, type EditableIdea } from "@/components/workspace/Con
 import { CodingPromptEditor } from "@/components/workspace/CodingPromptEditor";
 import { RobloxGameEditor } from "@/components/workspace/RobloxGameEditor";
 import { ThirtyDayPlannerEditor } from "@/components/workspace/ThirtyDayPlannerEditor";
+import { getToolHrefForKind } from "@/data/tools";
 import { useProjects } from "@/hooks/useProjects";
 import type {
   CodingPromptResult,
@@ -16,14 +17,20 @@ import type {
   ThirtyDayPlannerResult,
 } from "@/lib/domain/types";
 import { GenerationServiceError } from "@/lib/generation";
-import { REFINE_PRESETS } from "@/lib/workspace/refine-presets";
 import {
   DEFAULT_TAG_OPTIONS,
+  type ContentStatus,
   type PersistedContent,
   type PersistedProject,
   type ProjectStatus,
 } from "@/lib/persistence";
-import { kindLabel, projectPrimaryKind } from "@/lib/workspace/query";
+import { REFINE_PRESETS } from "@/lib/workspace/refine-presets";
+import {
+  CONTENT_STATUS_LABELS,
+  STATUS_LABELS,
+  kindLabel,
+  projectPrimaryKind,
+} from "@/lib/workspace/query";
 import { refineViaApi } from "@/lib/workspace/refine-client";
 
 const fieldClass =
@@ -32,6 +39,33 @@ const fieldClass =
 function clonePayload(payload: PersistedContent["payload"]) {
   return structuredClone(payload);
 }
+
+function summarizePayload(payload: PersistedContent["payload"] | null): string {
+  if (!payload || typeof payload !== "object") return "No content";
+  if ("ideas" in payload && Array.isArray(payload.ideas)) {
+    const ideas = payload.ideas as Array<{ title?: string; description?: string }>;
+    return ideas
+      .slice(0, 3)
+      .map((idea) => `${idea.title ?? "Idea"} — ${idea.description ?? ""}`)
+      .join("\n");
+  }
+  if ("result" in payload && payload.result && typeof payload.result === "object") {
+    const result = payload.result as Record<string, unknown>;
+    if (typeof result.fullPrompt === "string") return result.fullPrompt.slice(0, 600);
+    if (typeof result.fullPlan === "string") return result.fullPlan.slice(0, 600);
+    if (typeof result.summary === "string") return result.summary;
+    if (Array.isArray(result.posts)) {
+      return `${result.posts.length} planned posts`;
+    }
+  }
+  return JSON.stringify(payload).slice(0, 600);
+}
+
+type PendingRefine = {
+  title: string;
+  payload: PersistedContent["payload"];
+  instruction: string;
+};
 
 export function ProjectWorkspace({ project }: { project: PersistedProject }) {
   const router = useRouter();
@@ -48,8 +82,11 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
 
   const linked = getProjectContents(project.id);
   const primary =
-    linked.find((item) => item.id === project.primaryContentId) ?? linked[0] ?? null;
+    linked.find((item) => item.id === project.primaryContentId) ??
+    linked[0] ??
+    null;
   const kind = projectPrimaryKind(project, contents);
+  const toolHref = getToolHrefForKind(kind ?? "content-idea", project.id);
 
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description);
@@ -61,6 +98,9 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
   const [payload, setPayload] = useState<PersistedContent["payload"] | null>(
     primary ? clonePayload(primary.payload) : null,
   );
+  const [contentStatus, setContentStatus] = useState<ContentStatus>(
+    primary?.contentStatus ?? "draft",
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +108,7 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
     REFINE_PRESETS[0],
   );
   const [customRefine, setCustomRefine] = useState("");
+  const [pendingRefine, setPendingRefine] = useState<PendingRefine | null>(null);
   const [pending, startTransition] = useTransition();
   const [baseline, setBaseline] = useState(() =>
     JSON.stringify({
@@ -78,6 +119,7 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
       tags: project.tags,
       title: primary?.title ?? project.name,
       payload: primary?.payload ?? null,
+      contentStatus: primary?.contentStatus ?? "draft",
     }),
   );
 
@@ -91,8 +133,9 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
         tags,
         title,
         payload,
+        contentStatus,
       }),
-    [name, description, status, favorite, tags, title, payload],
+    [name, description, status, favorite, tags, title, payload, contentStatus],
   );
 
   const saveState = isSaving
@@ -103,14 +146,14 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (saveState === "unsaved") {
+      if (saveState === "unsaved" || pendingRefine) {
         event.preventDefault();
         event.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [saveState]);
+  }, [saveState, pendingRefine]);
 
   function markMetaDirty() {
     setMessage(null);
@@ -139,6 +182,7 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
           createVersion: true,
           versionSource: "save",
           versionLabel: "Manual save",
+          contentStatus,
         });
       }
       const nextBaseline = JSON.stringify({
@@ -149,6 +193,7 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
         tags,
         title,
         payload,
+        contentStatus,
       });
       setBaseline(nextBaseline);
       setMessage("Saved");
@@ -168,6 +213,10 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
 
   function onRefine() {
     if (!primary || !payload) return;
+    if (pendingRefine) {
+      setError("Accept or discard the current refinement first.");
+      return;
+    }
     const instruction = customRefine.trim() || refineInstruction;
     setError(null);
     setMessage(null);
@@ -179,34 +228,13 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
           title,
           payload,
         });
-        // Create a new version from refine without destroying prior payload.
-        const saved = saveContent({
-          id: primary.id,
-          kind: primary.kind,
+        // Review before saving — never overwrite the live project silently.
+        setPendingRefine({
           title: refined.title || title,
           payload: refined.payload,
-          projectId: project.id,
-          createVersion: true,
-          versionSource: "refine",
-          versionLabel: instruction.slice(0, 48),
+          instruction,
         });
-        const nextStatus = status === "draft" ? "in_progress" : status;
-        updateProject(project.id, { status: nextStatus });
-        setTitle(saved.title);
-        setPayload(clonePayload(saved.payload));
-        setBaseline(
-          JSON.stringify({
-            name,
-            description,
-            status: nextStatus,
-            favorite,
-            tags,
-            title: saved.title,
-            payload: saved.payload,
-          }),
-        );
-        if (status === "draft") setStatus("in_progress");
-        setMessage("Refinement saved as a new version");
+        setMessage("Review the refined result, then Accept to save a new version.");
       } catch (err) {
         setError(
           err instanceof GenerationServiceError
@@ -219,10 +247,55 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
     });
   }
 
+  function onAcceptRefine() {
+    if (!primary || !pendingRefine) return;
+    const saved = saveContent({
+      id: primary.id,
+      kind: primary.kind,
+      title: pendingRefine.title,
+      payload: pendingRefine.payload,
+      projectId: project.id,
+      createVersion: true,
+      versionSource: "refine",
+      versionLabel: pendingRefine.instruction.slice(0, 48),
+      contentStatus: "refined",
+    });
+    const nextStatus = status === "draft" || status === "in_progress"
+      ? "in_progress"
+      : status;
+    updateProject(project.id, {
+      status: nextStatus,
+      primaryContentId: primary.id,
+    });
+    setTitle(saved.title);
+    setPayload(clonePayload(saved.payload));
+    setContentStatus("refined");
+    if (status === "draft") setStatus("in_progress");
+    setBaseline(
+      JSON.stringify({
+        name,
+        description,
+        status: nextStatus,
+        favorite,
+        tags,
+        title: saved.title,
+        payload: saved.payload,
+        contentStatus: "refined",
+      }),
+    );
+    setPendingRefine(null);
+    setMessage("Refinement accepted and saved as a new version");
+  }
+
+  function onDiscardRefine() {
+    setPendingRefine(null);
+    setMessage("Refinement discarded — original content unchanged");
+  }
+
   function onRestore(versionId: string) {
     if (!primary) return;
     if (
-      saveState === "unsaved" &&
+      (saveState === "unsaved" || pendingRefine) &&
       !window.confirm("Discard unsaved edits and restore this version?")
     ) {
       return;
@@ -234,6 +307,8 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
     }
     setTitle(restored.title);
     setPayload(clonePayload(restored.payload));
+    setContentStatus(restored.contentStatus);
+    setPendingRefine(null);
     setBaseline(
       JSON.stringify({
         name,
@@ -243,9 +318,20 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
         tags,
         title: restored.title,
         payload: restored.payload,
+        contentStatus: restored.contentStatus,
       }),
     );
     setMessage("Version restored");
+  }
+
+  function selectContent(contentId: string) {
+    if (
+      (saveState === "unsaved" || pendingRefine) &&
+      !window.confirm("Switch content and discard unsaved changes?")
+    ) {
+      return;
+    }
+    updateProject(project.id, { primaryContentId: contentId });
   }
 
   const versions = primary?.versions.slice().reverse() ?? [];
@@ -254,12 +340,20 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
     <div className="space-y-8">
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link
-            href="/dashboard/projects"
-            className="text-sm font-semibold text-muted hover:text-accent"
-          >
-            ← Creator Workspace
-          </Link>
+          <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
+            <Link
+              href="/dashboard/projects"
+              className="text-muted hover:text-accent"
+            >
+              ← Workspace
+            </Link>
+            <Link href="/dashboard" className="text-muted hover:text-accent">
+              Overview
+            </Link>
+            <Link href="/dashboard/tools" className="text-muted hover:text-accent">
+              Tools
+            </Link>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={saveState === "unsaved" ? "warm" : "accent"}>
               {saveState === "saving"
@@ -274,6 +368,21 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
           </div>
         </div>
 
+        {(message || error) && (
+          <div className="space-y-1">
+            {message ? (
+              <p className="text-sm text-muted" role="status">
+                {message}
+              </p>
+            ) : null}
+            {error ? (
+              <p className="text-sm text-accent-2" role="alert">
+                {error}
+              </p>
+            ) : null}
+          </div>
+        )}
+
         <input
           className="w-full border-0 bg-transparent font-display text-3xl tracking-tight text-ink outline-none sm:text-4xl"
           value={name}
@@ -284,18 +393,26 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
         />
         <div className="flex flex-wrap gap-2">
           <Badge tone="neutral">{kindLabel(kind)}</Badge>
-          <Badge tone="warm">{status.replace("_", " ")}</Badge>
+          <Badge tone="warm">{STATUS_LABELS[status]}</Badge>
+          {primary ? (
+            <Badge tone="accent">
+              {CONTENT_STATUS_LABELS[contentStatus]}
+            </Badge>
+          ) : null}
           {favorite ? <Badge tone="accent">Favorite</Badge> : null}
         </div>
         <p className="text-sm text-muted">
           Created {new Date(project.createdAt).toLocaleString()} · Updated{" "}
           {new Date(project.updatedAt).toLocaleString()}
+          {primary
+            ? ` · ${primary.versions.length} version${primary.versions.length === 1 ? "" : "s"}`
+            : ""}
         </p>
       </section>
 
       <section className="grid gap-3 rounded-[14px] border border-line bg-bg-elevated p-4 sm:grid-cols-2">
         <label className="space-y-1.5">
-          <span className="text-sm font-semibold text-ink">Status</span>
+          <span className="text-sm font-semibold text-ink">Project status</span>
           <select
             className={fieldClass}
             value={status}
@@ -321,6 +438,26 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
             }}
           />
         </label>
+        {primary ? (
+          <label className="space-y-1.5 sm:col-span-2">
+            <span className="text-sm font-semibold text-ink">
+              Content status
+            </span>
+            <select
+              className={fieldClass}
+              value={contentStatus}
+              onChange={(e) => {
+                setContentStatus(e.target.value as ContentStatus);
+                markMetaDirty();
+              }}
+            >
+              <option value="draft">Draft</option>
+              <option value="in_progress">In Progress</option>
+              <option value="refined">Refined</option>
+              <option value="ready">Ready</option>
+            </select>
+          </label>
+        ) : null}
         <div className="space-y-2 sm:col-span-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-ink">Tags</span>
@@ -392,10 +529,18 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
         >
           Duplicate
         </Button>
+        {toolHref ? (
+          <Link href={toolHref}>
+            <Button size="sm" variant="secondary">
+              Generate more
+            </Button>
+          </Link>
+        ) : null}
         <Button
           size="sm"
           variant="secondary"
           onClick={() => {
+            if (!window.confirm(`Archive “${name}”?`)) return;
             archiveProject(project.id);
             setStatus("archived");
             setMessage("Archived");
@@ -422,14 +567,41 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
         </Button>
       </section>
 
+      {linked.length > 1 ? (
+        <section className="space-y-3">
+          <h2 className="font-display text-2xl text-ink">Saved content</h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {linked.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => selectContent(item.id)}
+                className={`rounded-[14px] border p-4 text-left transition ${
+                  item.id === primary?.id
+                    ? "border-accent bg-[var(--accent-soft)]"
+                    : "border-line bg-bg-elevated hover:border-accent/40"
+                }`}
+              >
+                <p className="font-display text-lg text-ink">{item.title}</p>
+                <p className="mt-1 text-xs text-muted">
+                  {kindLabel(item.kind)} ·{" "}
+                  {CONTENT_STATUS_LABELS[item.contentStatus]} · Updated{" "}
+                  {new Date(item.updatedAt).toLocaleString()}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {primary && payload ? (
         <section className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="font-display text-2xl text-ink">Main content</h2>
               <p className="text-sm text-muted">
-                Edit directly. Save creates a version. Refine creates a new
-                version without overwriting silently.
+                Edit directly, refine with AI, then save. Original versions stay
+                in history.
               </p>
             </div>
             <input
@@ -445,9 +617,15 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
 
           {primary.kind === "content-idea" ? (
             <ContentIdeaEditor
-              ideas={((payload as { ideas?: EditableIdea[] }).ideas ?? []) as EditableIdea[]}
+              ideas={
+                ((payload as { ideas?: EditableIdea[] }).ideas ??
+                  []) as EditableIdea[]
+              }
               onChange={(ideas) => {
-                setPayload({ ...(payload as object), ideas } as PersistedContent["payload"]);
+                setPayload({
+                  ...(payload as object),
+                  ideas,
+                } as PersistedContent["payload"]);
                 markMetaDirty();
               }}
             />
@@ -456,7 +634,10 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
             <CodingPromptEditor
               result={(payload as { result: CodingPromptResult }).result}
               onChange={(result) => {
-                setPayload({ ...(payload as object), result } as PersistedContent["payload"]);
+                setPayload({
+                  ...(payload as object),
+                  result,
+                } as PersistedContent["payload"]);
                 markMetaDirty();
               }}
             />
@@ -465,7 +646,10 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
             <RobloxGameEditor
               result={(payload as { result: RobloxGameResult }).result}
               onChange={(result) => {
-                setPayload({ ...(payload as object), result } as PersistedContent["payload"]);
+                setPayload({
+                  ...(payload as object),
+                  result,
+                } as PersistedContent["payload"]);
                 markMetaDirty();
               }}
             />
@@ -474,22 +658,46 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
             <ThirtyDayPlannerEditor
               result={(payload as { result: ThirtyDayPlannerResult }).result}
               onChange={(result) => {
-                setPayload({ ...(payload as object), result } as PersistedContent["payload"]);
+                setPayload({
+                  ...(payload as object),
+                  result,
+                } as PersistedContent["payload"]);
                 markMetaDirty();
               }}
             />
           ) : null}
         </section>
       ) : (
-        <p className="rounded-[14px] border border-line bg-bg-elevated p-5 text-sm text-muted">
-          This project has no saved generation yet. Create one from Tools and
-          choose this project when saving.
-        </p>
+        <div className="rounded-[14px] border border-dashed border-line bg-bg-elevated p-6">
+          <h2 className="font-display text-2xl text-ink">
+            No generated content yet
+          </h2>
+          <p className="mt-2 max-w-xl text-sm text-muted">
+            Generate from a CreatorForge tool and save into this project. Your
+            work will show up here ready to edit and refine.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href={toolHref ?? "/dashboard/tools"}>
+              <Button size="sm">Open tools</Button>
+            </Link>
+            <Link href="/dashboard/tools/content-idea-generator">
+              <Button size="sm" variant="secondary">
+                Content ideas
+              </Button>
+            </Link>
+          </div>
+        </div>
       )}
 
       {primary ? (
         <section className="space-y-4 rounded-[14px] border border-line bg-bg-elevated p-4">
-          <h2 className="font-display text-2xl text-ink">Refine with AI</h2>
+          <div>
+            <h2 className="font-display text-2xl text-ink">Refine with AI</h2>
+            <p className="mt-1 text-sm text-muted">
+              Choose a preset or write a custom instruction. Review the result
+              before it becomes a new version.
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             {REFINE_PRESETS.map((preset) => (
               <button
@@ -520,15 +728,57 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
               placeholder="Make this more appealing to 16–24 year old Roblox players."
             />
           </label>
-          <Button onClick={onRefine} disabled={pending || !payload}>
+          <Button onClick={onRefine} disabled={pending || !payload || !!pendingRefine}>
             {pending ? "Refining…" : "Refine with AI"}
           </Button>
+
+          {pendingRefine ? (
+            <div className="space-y-4 rounded-[12px] border border-accent/40 bg-bg p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-display text-xl text-ink">
+                  Review refinement
+                </h3>
+                <Badge tone="accent">{pendingRefine.instruction}</Badge>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <div className="rounded-[12px] border border-line p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                    Current
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-ink">
+                    {summarizePayload(payload)}
+                  </p>
+                </div>
+                <div className="rounded-[12px] border border-accent/30 bg-[var(--accent-soft)] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                    Proposed
+                  </p>
+                  <p className="mt-1 font-display text-lg text-ink">
+                    {pendingRefine.title}
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-ink">
+                    {summarizePayload(pendingRefine.payload)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={onAcceptRefine}>Accept & save version</Button>
+                <Button variant="secondary" onClick={onDiscardRefine}>
+                  Discard
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
       {versions.length > 0 ? (
         <section className="space-y-3">
           <h2 className="font-display text-2xl text-ink">Version history</h2>
+          <p className="text-sm text-muted">
+            Original → refined → further refined. Restore any earlier version
+            without losing the rest of the history.
+          </p>
           <div className="space-y-2">
             {versions.map((version) => (
               <article
@@ -540,7 +790,8 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
                     v{version.versionNumber} · {version.label}
                   </p>
                   <p className="text-xs text-muted">
-                    {new Date(version.createdAt).toLocaleString()} · {version.source}
+                    {new Date(version.createdAt).toLocaleString()} ·{" "}
+                    {version.source}
                   </p>
                 </div>
                 <Button
@@ -554,17 +805,6 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
             ))}
           </div>
         </section>
-      ) : null}
-
-      {message ? (
-        <p className="text-sm text-muted" role="status">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="text-sm text-accent-2" role="alert">
-          {error}
-        </p>
       ) : null}
     </div>
   );

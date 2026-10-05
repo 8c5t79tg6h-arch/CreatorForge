@@ -1,4 +1,5 @@
 import type {
+  ContentStatus,
   PersistedContent,
   PersistedContentKind,
   PersistedProject,
@@ -19,6 +20,13 @@ export const STATUS_LABELS: Record<ProjectStatus, string> = {
   archived: "Archived",
 };
 
+export const CONTENT_STATUS_LABELS: Record<ContentStatus, string> = {
+  draft: "Draft",
+  in_progress: "In Progress",
+  refined: "Refined",
+  ready: "Ready",
+};
+
 export function kindLabel(kind: PersistedContentKind | null | undefined): string {
   if (!kind) return "Project";
   return KIND_LABELS[kind];
@@ -36,6 +44,13 @@ export function projectPrimaryKind(
   return linked[0]?.kind ?? null;
 }
 
+export function projectContentCount(
+  project: PersistedProject,
+  contents: PersistedContent[],
+): number {
+  return contents.filter((item) => item.projectId === project.id).length;
+}
+
 export function projectSearchBlob(
   project: PersistedProject,
   contents: PersistedContent[],
@@ -46,7 +61,10 @@ export function projectSearchBlob(
     project.description,
     project.tags.join(" "),
     project.status,
-    ...linked.map((item) => `${item.title} ${JSON.stringify(item.payload)}`),
+    ...linked.map(
+      (item) =>
+        `${item.title} ${item.contentStatus} ${JSON.stringify(item.payload)}`,
+    ),
   ];
   return parts.join(" ").toLowerCase();
 }

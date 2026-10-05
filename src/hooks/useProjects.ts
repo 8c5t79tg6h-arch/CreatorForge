@@ -12,6 +12,7 @@ import {
   createProject as createProjectRecord,
   deleteProject as deleteProjectRecord,
   duplicateProject as duplicateProjectRecord,
+  getProject,
   getServerSnapshot,
   getWorkspaceSnapshot,
   listContents,
@@ -94,9 +95,10 @@ export function useProjects() {
       payload: PersistedContent["payload"],
       projectId?: string | null,
     ) => {
-      // Auto-create a project shell when saving unassigned work so the
+      // Auto-create a project shell when saving without a destination so the
       // Creator Workspace home always has something openable.
       let resolvedProjectId = projectId ?? null;
+      let createdProject = false;
       if (!resolvedProjectId) {
         const project = createProjectRecord({
           name: title.trim() || "Untitled project",
@@ -105,18 +107,35 @@ export function useProjects() {
           tags: [],
         });
         resolvedProjectId = project.id;
+        createdProject = true;
       }
+
+      const existing = getProject(resolvedProjectId);
       const content = saveContentRecord({
         kind,
         title,
         payload,
         projectId: resolvedProjectId,
+        contentStatus: "draft",
       });
+
+      // Keep an existing primary content unless this is a brand-new project.
+      const nextPrimary =
+        createdProject || !existing?.primaryContentId
+          ? content.id
+          : existing.primaryContentId;
+
       updateProjectRecord(resolvedProjectId, {
-        primaryContentId: content.id,
+        primaryContentId: nextPrimary,
+        status:
+          existing?.status === "ready" || existing?.status === "archived"
+            ? existing.status
+            : existing?.status === "in_progress"
+              ? "in_progress"
+              : "draft",
       });
       refreshWorkspace();
-      return content;
+      return { content, projectId: resolvedProjectId };
     },
     [],
   );

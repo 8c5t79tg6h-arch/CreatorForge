@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { SaveDestination } from "@/components/tools/SaveDestination";
 import { useProjects } from "@/hooks/useProjects";
 import {
   formatPlanAsText,
@@ -53,6 +54,9 @@ export function ThirtyDayContentPlannerTool() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [lastSavedProjectId, setLastSavedProjectId] = useState<string | null>(
+    null,
+  );
   const [result, setResult] = useState<ThirtyDayPlannerResult | null>(null);
   const [projectId, setProjectId] = useState("");
   const [input, setInput] = useState<ThirtyDayPlannerInput>({
@@ -127,13 +131,15 @@ export function ThirtyDayContentPlannerTool() {
 
   function onSave() {
     if (!result) return;
-    saveByKind(
+    const saved = saveByKind(
       "thirty-day-planner",
       `${input.niche} · 30-day plan`,
       { input, result },
       projectId || null,
     );
-    setStatus("Saved 30-day plan");
+    setProjectId(saved.projectId);
+    setLastSavedProjectId(saved.projectId);
+    setStatus("Saved 30-day plan to project");
   }
 
   function onRegenerate(post: PlannedPost) {
@@ -241,23 +247,6 @@ export function ThirtyDayContentPlannerTool() {
             ))}
           </select>
         </label>
-        <label className="space-y-1.5">
-          <span className="text-sm font-semibold text-ink">
-            Save destination project (optional)
-          </span>
-          <select
-            className={fieldClass}
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-          >
-            <option value="">Unassigned</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="space-y-1.5 md:col-span-2">
           <span className="text-sm font-semibold text-ink">Notes (optional)</span>
           <input
@@ -267,6 +256,13 @@ export function ThirtyDayContentPlannerTool() {
             placeholder="Launch week, product name, constraints…"
           />
         </label>
+        <SaveDestination
+          projects={projects}
+          projectId={projectId}
+          onProjectIdChange={setProjectId}
+          lastSavedProjectId={lastSavedProjectId}
+          statusMessage={status}
+        />
         <div className="md:col-span-2">
           <Button type="submit" disabled={!canSubmit}>
             {pending ? "Planning…" : "Generate 30-day plan"}
@@ -279,7 +275,6 @@ export function ThirtyDayContentPlannerTool() {
           {error}
         </p>
       ) : null}
-      {status ? <p className="text-sm text-muted">{status}</p> : null}
 
       {result ? (
         <section className="space-y-4">

@@ -11,6 +11,9 @@ export type PersistedContentKind =
 
 export type ProjectStatus = "draft" | "in_progress" | "ready" | "archived";
 
+/** Lightweight pipeline status for individual saved generations. */
+export type ContentStatus = "draft" | "in_progress" | "refined" | "ready";
+
 export type VersionSource = "create" | "save" | "refine" | "restore" | "manual";
 
 export type ContentVersion = {
@@ -45,6 +48,8 @@ export type PersistedContentBase = {
   createdAt: string;
   updatedAt: string;
   versions: ContentVersion[];
+  /** Pipeline status — optional for older saves; migrate fills defaults. */
+  contentStatus: ContentStatus;
 };
 
 export type PersistedContentIdea = PersistedContentBase & {
@@ -193,6 +198,10 @@ function normalizeContent(value: unknown): PersistedContent | null {
   }
 
   const versions = normalizeVersions(c.versions, c);
+  const contentStatus = resolveContentStatus(
+    (c as { contentStatus?: unknown }).contentStatus,
+    versions,
+  );
   return {
     id: c.id,
     projectId: c.projectId,
@@ -202,7 +211,27 @@ function normalizeContent(value: unknown): PersistedContent | null {
     updatedAt: c.updatedAt,
     payload: c.payload,
     versions,
+    contentStatus,
   } as PersistedContent;
+}
+
+function resolveContentStatus(
+  value: unknown,
+  versions: ContentVersion[],
+): ContentStatus {
+  if (isContentStatus(value)) return value;
+  if (versions.some((version) => version.source === "refine")) return "refined";
+  if (versions.length > 1) return "in_progress";
+  return "draft";
+}
+
+function isContentStatus(value: unknown): value is ContentStatus {
+  return (
+    value === "draft" ||
+    value === "in_progress" ||
+    value === "refined" ||
+    value === "ready"
+  );
 }
 
 function normalizeVersions(

@@ -11,7 +11,7 @@ content ideas, AI coding prompts, Roblox game plans, and 30-day content calendar
 - localStorage persistence
 - Mock or OpenAI generation providers
 
-## Stages 1–11
+## Stages 1–12
 
 1. **Scaffold & brand** — landing composition, fonts, CSS variables, dashboard shell
 2. **Tools catalog** — available tools with dedicated routes
@@ -24,6 +24,8 @@ content ideas, AI coding prompts, Roblox game plans, and 30-day content calendar
 9. **30-Day Content Planner** — month calendar, save/export polish, dashboard recent saves
 10. **Real AI Generation Engine** — shared provider pipeline, enum validation, result normalization
 11. **Creator Workspace** — editable projects, versions, refine, tags, favorites, search
+12. **Workspace polish + AI pipeline** — empty states, save→open loop, refine review/accept, content status
+12. **Workspace polish + AI pipeline** — empty states, save→open loop, refine review/accept, content status
 
 ## Routes
 
@@ -123,6 +125,7 @@ npm run verify:stage8
 npm run verify:stage9
 npm run verify:stage10
 npm run verify:stage11
+npm run verify:stage12
 ```
 
 ## Architecture notes

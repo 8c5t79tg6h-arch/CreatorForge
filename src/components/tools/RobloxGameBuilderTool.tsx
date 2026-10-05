@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { SaveDestination } from "@/components/tools/SaveDestination";
 import { useProjects } from "@/hooks/useProjects";
 import type {
   RobloxArtStyle,
@@ -50,6 +51,9 @@ export function RobloxGameBuilderTool() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [lastSavedProjectId, setLastSavedProjectId] = useState<string | null>(
+    null,
+  );
   const [result, setResult] = useState<RobloxGameResult | null>(null);
   const [projectId, setProjectId] = useState("");
   const [input, setInput] = useState<RobloxGameInput>({
@@ -117,13 +121,15 @@ export function RobloxGameBuilderTool() {
 
   function onSave() {
     if (!result) return;
-    saveByKind(
+    const saved = saveByKind(
       "roblox-game",
       input.idea.slice(0, 80) || "Roblox game plan",
       { input, result },
       projectId || null,
     );
-    setStatus("Saved Roblox plan");
+    setProjectId(saved.projectId);
+    setLastSavedProjectId(saved.projectId);
+    setStatus("Saved Roblox plan to project");
   }
 
   return (
@@ -243,23 +249,13 @@ export function RobloxGameBuilderTool() {
             onChange={(e) => update("additionalRequirements", e.target.value)}
           />
         </label>
-        <label className="space-y-1.5 md:col-span-2">
-          <span className="text-sm font-semibold text-ink">
-            Save destination project (optional)
-          </span>
-          <select
-            className={fieldClass}
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-          >
-            <option value="">Unassigned</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SaveDestination
+          projects={projects}
+          projectId={projectId}
+          onProjectIdChange={setProjectId}
+          lastSavedProjectId={lastSavedProjectId}
+          statusMessage={status}
+        />
         <div className="md:col-span-2">
           <Button type="submit" disabled={!canSubmit}>
             {pending ? "Generating…" : "Generate game plan"}
@@ -272,7 +268,6 @@ export function RobloxGameBuilderTool() {
           {error}
         </p>
       ) : null}
-      {status ? <p className="text-sm text-muted">{status}</p> : null}
 
       {pending && !result ? (
         <p className="text-sm text-muted">Designing systems…</p>

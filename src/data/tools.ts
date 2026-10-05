@@ -62,7 +62,12 @@ export function getAvailableTools(): ToolDefinition[] {
   return tools.filter((tool) => tool.status === "available");
 }
 
-export function getToolHrefForKind(kind: string): string | null {
+export function getToolHrefForKind(
+  kind: string,
+  projectId?: string | null,
+): string | null {
   const tool = tools.find((item) => item.kind === kind);
-  return tool?.href ?? null;
+  if (!tool) return null;
+  if (!projectId) return tool.href;
+  return `${tool.href}?projectId=${encodeURIComponent(projectId)}`;
 }

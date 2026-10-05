@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useProjects } from "@/hooks/useProjects";
 import {
+  STATUS_LABELS,
   filterAndSortProjects,
   kindLabel,
+  projectContentCount,
   projectPrimaryKind,
   type ProjectFilter,
   type ProjectSort,
@@ -20,11 +23,13 @@ const fieldClass =
 function ProjectCard({
   project,
   kind,
+  contentCount,
   onFavorite,
   onArchive,
 }: {
   project: PersistedProject;
   kind: string;
+  contentCount: number;
   onFavorite: () => void;
   onArchive: () => void;
 }) {
@@ -32,10 +37,12 @@ function ProjectCard({
     <article className="flex flex-col gap-3 rounded-[14px] border border-line bg-bg-elevated p-4 shadow-[var(--shadow)]">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
-          <h3 className="truncate font-display text-xl text-ink">{project.name}</h3>
+          <h3 className="truncate font-display text-xl text-ink">
+            {project.name}
+          </h3>
           <div className="flex flex-wrap gap-2">
             <Badge tone="neutral">{kind}</Badge>
-            <Badge tone="warm">{project.status.replace("_", " ")}</Badge>
+            <Badge tone="warm">{STATUS_LABELS[project.status]}</Badge>
             {project.favorite ? <Badge tone="accent">Favorite</Badge> : null}
           </div>
         </div>
@@ -52,7 +59,8 @@ function ProjectCard({
         <p className="text-xs text-muted">{project.tags.join(" · ")}</p>
       ) : null}
       <p className="text-xs text-muted">
-        Updated {new Date(project.updatedAt).toLocaleString()}
+        {contentCount} saved item{contentCount === 1 ? "" : "s"} · Updated{" "}
+        {new Date(project.updatedAt).toLocaleString()}
       </p>
       <div className="flex flex-wrap gap-2">
         <Link href={`/dashboard/projects/${project.id}`}>
@@ -66,7 +74,32 @@ function ProjectCard({
   );
 }
 
+function EmptyState({
+  title,
+  body,
+  actionHref,
+  actionLabel,
+}: {
+  title: string;
+  body: string;
+  actionHref: string;
+  actionLabel: string;
+}) {
+  return (
+    <div className="rounded-[14px] border border-dashed border-line bg-bg-elevated p-6">
+      <h3 className="font-display text-xl text-ink">{title}</h3>
+      <p className="mt-2 max-w-xl text-sm text-muted">{body}</p>
+      <div className="mt-4">
+        <Link href={actionHref}>
+          <Button size="sm">{actionLabel}</Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default function ProjectsPage() {
+  const router = useRouter();
   const {
     projects,
     contents,
@@ -92,7 +125,7 @@ export default function ProjectsPage() {
     [projects, contents, query, filter, sort],
   );
 
-  const continueCreating = useMemo(
+  const recentProjects = useMemo(
     () =>
       filterAndSortProjects({
         projects,
@@ -100,7 +133,7 @@ export default function ProjectsPage() {
         query: "",
         filter: "all",
         sort: "updated",
-      }).slice(0, 4),
+      }).slice(0, 6),
     [projects, contents],
   );
 
@@ -116,14 +149,26 @@ export default function ProjectsPage() {
     [projects, contents],
   );
 
-  const recent = useMemo(
+  const readyProjects = useMemo(
     () =>
       filterAndSortProjects({
         projects,
         contents,
         query: "",
-        filter: "all",
-        sort: "created",
+        filter: "ready",
+        sort: "updated",
+      }).slice(0, 4),
+    [projects, contents],
+  );
+
+  const inProgress = useMemo(
+    () =>
+      filterAndSortProjects({
+        projects,
+        contents,
+        query: "",
+        filter: "in_progress",
+        sort: "updated",
       }).slice(0, 4),
     [projects, contents],
   );
@@ -143,35 +188,78 @@ export default function ProjectsPage() {
     return groups;
   }, [projects, contents]);
 
+  const counts = useMemo(() => {
+    const active = projects.filter((project) => project.status !== "archived");
+    return {
+      total: active.length,
+      draft: active.filter((project) => project.status === "draft").length,
+      inProgress: active.filter((project) => project.status === "in_progress")
+        .length,
+      ready: active.filter((project) => project.status === "ready").length,
+      saved: contents.filter((content) => content.projectId).length,
+    };
+  }, [projects, contents]);
+
   function onCreate(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
-    createProject({ name, description, status: "draft", tags: [] });
+    const project = createProject({
+      name,
+      description,
+      status: "draft",
+      tags: [],
+    });
     setName("");
     setDescription("");
+    router.push(`/dashboard/projects/${project.id}`);
   }
 
-  function renderSection(title: string, items: PersistedProject[]) {
-    if (items.length === 0) return null;
+  function renderCard(project: PersistedProject) {
+    return (
+      <ProjectCard
+        key={project.id}
+        project={project}
+        kind={kindLabel(projectPrimaryKind(project, contents))}
+        contentCount={projectContentCount(project, contents)}
+        onFavorite={() =>
+          updateProject(project.id, { favorite: !project.favorite })
+        }
+        onArchive={() => {
+          if (!window.confirm(`Archive “${project.name}”?`)) return;
+          archiveProject(project.id);
+        }}
+      />
+    );
+  }
+
+  function renderSection(
+    title: string,
+    items: PersistedProject[],
+    empty?: { title: string; body: string; href: string; label: string },
+  ) {
+    if (items.length === 0) {
+      if (!empty) return null;
+      return (
+        <section className="space-y-3">
+          <h2 className="font-display text-2xl text-ink">{title}</h2>
+          <EmptyState
+            title={empty.title}
+            body={empty.body}
+            actionHref={empty.href}
+            actionLabel={empty.label}
+          />
+        </section>
+      );
+    }
     return (
       <section className="space-y-3">
         <h2 className="font-display text-2xl text-ink">{title}</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {items.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              kind={kindLabel(projectPrimaryKind(project, contents))}
-              onFavorite={() =>
-                updateProject(project.id, { favorite: !project.favorite })
-              }
-              onArchive={() => archiveProject(project.id)}
-            />
-          ))}
-        </div>
+        <div className="grid gap-3 sm:grid-cols-2">{items.map(renderCard)}</div>
       </section>
     );
   }
+
+  const filtering = query || filter !== "all" || sort !== "updated";
 
   return (
     <div className="space-y-10">
@@ -183,9 +271,15 @@ export default function ProjectsPage() {
           Continue creating
         </h1>
         <p className="max-w-2xl text-base text-muted">
-          Open saved work, edit it, refine with AI, and organize with tags,
-          favorites, and status.
+          Manage projects, open saved generations, refine with AI, and mark work
+          ready to use.
         </p>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Badge tone="neutral">{counts.total} projects</Badge>
+          <Badge tone="warm">{counts.inProgress} in progress</Badge>
+          <Badge tone="accent">{counts.ready} ready</Badge>
+          <Badge tone="neutral">{counts.saved} saved items</Badge>
+        </div>
       </section>
 
       <form
@@ -205,7 +299,7 @@ export default function ProjectsPage() {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-        <Button type="submit">Create</Button>
+        <Button type="submit">Create & open</Button>
       </form>
 
       <section className="grid gap-3 rounded-[14px] border border-line bg-bg-elevated p-4 md:grid-cols-3">
@@ -251,32 +345,46 @@ export default function ProjectsPage() {
         </label>
       </section>
 
-      {query || filter !== "all" || sort !== "updated" ? (
+      {filtering ? (
         <section className="space-y-3">
           <h2 className="font-display text-2xl text-ink">Results</h2>
           {visible.length === 0 ? (
-            <p className="text-sm text-muted">No projects match.</p>
+            <EmptyState
+              title="No projects match"
+              body="Try a different search, clear filters, or create a new project."
+              actionHref="/dashboard/tools"
+              actionLabel="Open tools"
+            />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {visible.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  kind={kindLabel(projectPrimaryKind(project, contents))}
-                  onFavorite={() =>
-                    updateProject(project.id, { favorite: !project.favorite })
-                  }
-                  onArchive={() => archiveProject(project.id)}
-                />
-              ))}
+              {visible.map(renderCard)}
             </div>
           )}
         </section>
+      ) : projects.filter((project) => project.status !== "archived").length ===
+        0 ? (
+        <EmptyState
+          title="No projects yet"
+          body="Generate something in Tools and hit Save, or create a blank project above to start organizing your work."
+          actionHref="/dashboard/tools"
+          actionLabel="Start generating"
+        />
       ) : (
         <>
-          {renderSection("Continue Creating", continueCreating)}
-          {renderSection("Favorites", favorites)}
-          {renderSection("Recent", recent)}
+          {renderSection("Recent Projects", recentProjects)}
+          {renderSection("In Progress", inProgress, {
+            title: "Nothing in progress",
+            body: "Open a draft, refine it with AI, or mark a project In Progress when you're actively working.",
+            href: "/dashboard/tools",
+            label: "Generate content",
+          })}
+          {renderSection("Ready to use", readyProjects)}
+          {renderSection("Favorites", favorites, {
+            title: "No favorites yet",
+            body: "Star projects you return to often so they stay one click away.",
+            href: "/dashboard/projects",
+            label: "Browse projects",
+          })}
           {renderSection(
             "Content Ideas",
             byType["content-idea"].slice(0, 4),
@@ -290,12 +398,6 @@ export default function ProjectsPage() {
             "30-Day Planner",
             byType["thirty-day-planner"].slice(0, 4),
           )}
-          {projects.length === 0 ? (
-            <p className="text-sm text-muted">
-              No projects yet. Generate something in Tools and hit Save, or
-              create a blank project above.
-            </p>
-          ) : null}
         </>
       )}
     </div>

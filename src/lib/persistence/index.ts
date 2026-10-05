@@ -12,6 +12,7 @@ export {
   type PersistedContentKind,
   type PersistedProject,
   type ProjectStatus,
+  type ContentStatus,
   type ContentVersion,
   type VersionSource,
   type WorkspaceSnapshot,
