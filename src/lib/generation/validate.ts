@@ -6,6 +6,20 @@ import type {
   ThirtyDayPlannerInput,
 } from "./types";
 import { GenerationServiceError } from "./types";
+import {
+  CODING_TARGETS,
+  CONTENT_PLATFORMS,
+  CONTENT_TONES,
+  CONTENT_TYPES,
+  EXPERIENCE_LEVELS,
+  PLANNER_GOALS,
+  PROMPT_STYLES,
+  ROBLOX_ART_STYLES,
+  ROBLOX_AUDIENCES,
+  ROBLOX_GENRES,
+  ROBLOX_MONETIZATION,
+  requireEnum,
+} from "./catalog";
 
 function requireString(value: unknown, field: string): string {
   if (typeof value !== "string" || !value.trim()) {
@@ -35,12 +49,9 @@ export function validateContentIdeaInput(raw: unknown): ContentIdeaInput {
   const input = raw as Record<string, unknown>;
   return {
     topic: requireString(input.topic, "topic"),
-    platform: requireString(input.platform, "platform") as ContentIdeaInput["platform"],
-    contentType: requireString(
-      input.contentType,
-      "contentType",
-    ) as ContentIdeaInput["contentType"],
-    tone: requireString(input.tone, "tone") as ContentIdeaInput["tone"],
+    platform: requireEnum(input.platform, "platform", CONTENT_PLATFORMS),
+    contentType: requireEnum(input.contentType, "contentType", CONTENT_TYPES),
+    tone: requireEnum(input.tone, "tone", CONTENT_TONES),
     count: Math.min(Math.max(requireNumber(input.count, "count"), 1), 12),
   };
 }
@@ -52,16 +63,14 @@ export function validateCodingPromptInput(raw: unknown): CodingPromptInput {
   const input = raw as Record<string, unknown>;
   return {
     idea: requireString(input.idea, "idea"),
-    target: requireString(input.target, "target") as CodingPromptInput["target"],
+    target: requireEnum(input.target, "target", CODING_TARGETS),
     technology: requireString(input.technology, "technology"),
-    experienceLevel: requireString(
+    experienceLevel: requireEnum(
       input.experienceLevel,
       "experienceLevel",
-    ) as CodingPromptInput["experienceLevel"],
-    promptStyle: requireString(
-      input.promptStyle,
-      "promptStyle",
-    ) as CodingPromptInput["promptStyle"],
+      EXPERIENCE_LEVELS,
+    ),
+    promptStyle: requireEnum(input.promptStyle, "promptStyle", PROMPT_STYLES),
     additionalRequirements:
       typeof input.additionalRequirements === "string"
         ? input.additionalRequirements
@@ -76,20 +85,15 @@ export function validateRobloxGameInput(raw: unknown): RobloxGameInput {
   const input = raw as Record<string, unknown>;
   return {
     idea: requireString(input.idea, "idea"),
-    genre: requireString(input.genre, "genre") as RobloxGameInput["genre"],
+    genre: requireEnum(input.genre, "genre", ROBLOX_GENRES),
     coreGameplay: requireString(input.coreGameplay, "coreGameplay"),
-    audience: requireString(
-      input.audience,
-      "audience",
-    ) as RobloxGameInput["audience"],
-    artStyle: requireString(
-      input.artStyle,
-      "artStyle",
-    ) as RobloxGameInput["artStyle"],
-    monetization: requireString(
+    audience: requireEnum(input.audience, "audience", ROBLOX_AUDIENCES),
+    artStyle: requireEnum(input.artStyle, "artStyle", ROBLOX_ART_STYLES),
+    monetization: requireEnum(
       input.monetization,
       "monetization",
-    ) as RobloxGameInput["monetization"],
+      ROBLOX_MONETIZATION,
+    ),
     desiredFeatures:
       typeof input.desiredFeatures === "string"
         ? input.desiredFeatures
@@ -100,15 +104,6 @@ export function validateRobloxGameInput(raw: unknown): RobloxGameInput {
         : undefined,
   };
 }
-
-const allowedPlatforms = new Set([
-  "YouTube",
-  "TikTok",
-  "Instagram",
-  "LinkedIn",
-  "X",
-  "Blog",
-]);
 
 export function validateThirtyDayPlannerInput(
   raw: unknown,
@@ -121,7 +116,9 @@ export function validateThirtyDayPlannerInput(
   const platforms = platformsRaw
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim())
-    .filter((item) => allowedPlatforms.has(item)) as ThirtyDayPlannerInput["platforms"];
+    .filter((item) =>
+      (CONTENT_PLATFORMS as readonly string[]).includes(item),
+    ) as ThirtyDayPlannerInput["platforms"];
 
   if (platforms.length === 0) {
     throw new GenerationServiceError(
@@ -137,8 +134,8 @@ export function validateThirtyDayPlannerInput(
       Math.max(requireNumber(input.postsPerWeek, "postsPerWeek"), 1),
       14,
     ),
-    tone: requireString(input.tone, "tone") as ThirtyDayPlannerInput["tone"],
-    goal: requireString(input.goal, "goal") as ThirtyDayPlannerInput["goal"],
+    tone: requireEnum(input.tone, "tone", CONTENT_TONES),
+    goal: requireEnum(input.goal, "goal", PLANNER_GOALS),
     notes: typeof input.notes === "string" ? input.notes : undefined,
   };
 }

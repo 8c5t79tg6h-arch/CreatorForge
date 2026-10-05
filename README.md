@@ -11,7 +11,7 @@ content ideas, AI coding prompts, Roblox game plans, and 30-day content calendar
 - localStorage persistence
 - Mock or OpenAI generation providers
 
-## Stages 1–9
+## Stages 1–10
 
 1. **Scaffold & brand** — landing composition, fonts, CSS variables, dashboard shell
 2. **Tools catalog** — available tools with dedicated routes
@@ -22,6 +22,7 @@ content ideas, AI coding prompts, Roblox game plans, and 30-day content calendar
 7. **Roblox Game Builder** — full plan contract + UI
 8. **OpenAI provider** — `json_schema` structured outputs for all tools
 9. **30-Day Content Planner** — month calendar, save/export polish, dashboard recent saves
+10. **Real AI Generation Engine** — shared provider pipeline, enum validation, result normalization
 
 ## Routes
 
@@ -39,6 +40,18 @@ content ideas, AI coding prompts, Roblox game plans, and 30-day content calendar
 | `/dashboard/projects/[id]` | Project detail + save preview |
 | `/dashboard/settings` | Backup/export/import + clear |
 | `POST /api/generate` | Server-only generation |
+
+## AI generation engine
+
+Shared server pipeline used by every tool:
+
+`User Input → validate → AI Provider (mock|openai) → structured result → normalize → UI → Save`
+
+- Providers register in `src/lib/generation/server-register.ts`
+- Contracts/schemas live in `src/lib/generation/schemas.ts`
+- Input allowlists live in `src/lib/generation/catalog.ts`
+- Output normalization lives in `src/lib/generation/normalize.ts`
+- Tools keep calling `generateViaApi` / `POST /api/generate` (no client-side OpenAI)
 
 ## Environment
 
@@ -106,11 +119,13 @@ npm run verify:stage6
 npm run verify:stage7
 npm run verify:stage8
 npm run verify:stage9
+npm run verify:stage10
 ```
 
 ## Architecture notes
 
 - Browser clients call `generateViaApi` → `POST /api/generate`
-- Node/tests call `runGeneration` after `registerServerProviders()`
+- Node/tests call `runGeneration` / `runGenerationFromUnknown` after `registerServerProviders()`
+- Engine pipeline: validate input → provider → normalize result
 - Mock provider reuses domain generators for deterministic local output
-- OpenAI provider is imported only through server registration
+- OpenAI provider uses shared JSON schemas + structured outputs; imported only on the server

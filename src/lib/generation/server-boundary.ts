@@ -5,5 +5,7 @@
  */
 export { registerServerProviders } from "./server-register";
 export { runGeneration, runGenerationFromUnknown } from "./service";
-export { getAIProvider, resolveProviderName } from "./config";
+export { getAIProvider, resolveProviderName, getOpenAIConfig } from "./config";
 export { GenerationServiceError } from "./types";
+export { normalizeGenerationResult } from "./normalize";
+export { validateGenerationRequest } from "./validate";

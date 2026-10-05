@@ -7,6 +7,23 @@ import {
 
 export const runtime = "nodejs";
 
+function publicErrorMessage(error: GenerationServiceError): string {
+  switch (error.code) {
+    case "invalid_request":
+    case "unsupported":
+      return error.message;
+    case "timeout":
+      return "Generation timed out. Try again.";
+    case "provider_error":
+      if (error.message.includes("OPENAI_API_KEY")) {
+        return "OpenAI is selected but OPENAI_API_KEY is not configured.";
+      }
+      return "Generation failed. Try again or switch AI_PROVIDER to mock.";
+    default:
+      return "Generation failed.";
+  }
+}
+
 export async function POST(request: Request) {
   registerServerProviders();
 
@@ -23,14 +40,14 @@ export async function POST(request: Request) {
             ? 504
             : 500;
       return NextResponse.json(
-        { error: error.message, code: error.code },
+        { error: publicErrorMessage(error), code: error.code },
         { status },
       );
     }
 
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Unexpected error",
+        error: "Generation failed.",
         code: "provider_error",
       },
       { status: 500 },

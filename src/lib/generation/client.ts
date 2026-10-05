@@ -1,6 +1,19 @@
 import type { GenerationRequest, GenerationResult } from "./types";
 import { GenerationServiceError } from "./types";
 
+function isGenerationResult(value: unknown): value is GenerationResult {
+  if (!value || typeof value !== "object") return false;
+  const body = value as { kind?: unknown; result?: unknown };
+  return (
+    (body.kind === "content-idea" ||
+      body.kind === "coding-prompt" ||
+      body.kind === "roblox-game" ||
+      body.kind === "thirty-day-planner") &&
+    body.result !== null &&
+    typeof body.result === "object"
+  );
+}
+
 export async function generateViaApi(
   request: GenerationRequest,
 ): Promise<GenerationResult> {
@@ -27,5 +40,12 @@ export async function generateViaApi(
     throw new GenerationServiceError(code, message);
   }
 
-  return data as GenerationResult;
+  if (!isGenerationResult(data)) {
+    throw new GenerationServiceError(
+      "provider_error",
+      "Generation returned an unexpected payload",
+    );
+  }
+
+  return data;
 }
