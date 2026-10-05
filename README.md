@@ -11,7 +11,7 @@ content ideas, AI coding prompts, Roblox game plans, and 30-day content calendar
 - localStorage persistence
 - Mock or OpenAI generation providers
 
-## Stages 1–10
+## Stages 1–11
 
 1. **Scaffold & brand** — landing composition, fonts, CSS variables, dashboard shell
 2. **Tools catalog** — available tools with dedicated routes
@@ -23,6 +23,7 @@ content ideas, AI coding prompts, Roblox game plans, and 30-day content calendar
 8. **OpenAI provider** — `json_schema` structured outputs for all tools
 9. **30-Day Content Planner** — month calendar, save/export polish, dashboard recent saves
 10. **Real AI Generation Engine** — shared provider pipeline, enum validation, result normalization
+11. **Creator Workspace** — editable projects, versions, refine, tags, favorites, search
 
 ## Routes
 
@@ -36,10 +37,11 @@ content ideas, AI coding prompts, Roblox game plans, and 30-day content calendar
 | `/dashboard/tools/roblox-game-builder` | Roblox plans |
 | `/dashboard/tools/thirty-day-content-planner` | 30-day calendar |
 | `/dashboard/tools/[slug]` | Soon tools (roadmap placeholders) |
-| `/dashboard/projects` | Project list |
-| `/dashboard/projects/[id]` | Project detail + save preview |
+| `/dashboard/projects` | Creator Workspace home |
+| `/dashboard/projects/[id]` | Project workspace (edit/refine/versions) |
 | `/dashboard/settings` | Backup/export/import + clear |
 | `POST /api/generate` | Server-only generation |
+| `POST /api/refine` | AI refine → new version payload |
 
 ## AI generation engine
 
@@ -120,6 +122,7 @@ npm run verify:stage7
 npm run verify:stage8
 npm run verify:stage9
 npm run verify:stage10
+npm run verify:stage11
 ```
 
 ## Architecture notes

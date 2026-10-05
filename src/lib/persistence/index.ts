@@ -7,9 +7,13 @@ export {
   migrateWorkspace,
   readRawWorkspace,
   writeRawWorkspace,
+  DEFAULT_TAG_OPTIONS,
   type PersistedContent,
   type PersistedContentKind,
   type PersistedProject,
+  type ProjectStatus,
+  type ContentVersion,
+  type VersionSource,
   type WorkspaceSnapshot,
 } from "./migrate";
 export {
@@ -18,6 +22,8 @@ export {
   createProject,
   updateProject,
   deleteProject,
+  archiveProject,
+  duplicateProject,
   attachContentToProject,
   type CreateProjectInput,
   type UpdateProjectInput,
@@ -29,8 +35,10 @@ export {
   saveContent,
   unsaveContent,
   saveContentByKind,
+  restoreContentVersion,
   type SaveContentInput,
 } from "./content-repository";
+
 export {
   getWorkspaceSnapshot,
   replaceWorkspace,

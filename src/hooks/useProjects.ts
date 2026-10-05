@@ -8,14 +8,17 @@ import {
   type PersistedProject,
   type SaveContentInput,
   type UpdateProjectInput,
+  archiveProject as archiveProjectRecord,
   createProject as createProjectRecord,
   deleteProject as deleteProjectRecord,
+  duplicateProject as duplicateProjectRecord,
   getServerSnapshot,
   getWorkspaceSnapshot,
   listContents,
   listContentsByProject,
   listProjects,
   refreshWorkspace,
+  restoreContentVersion as restoreContentVersionRecord,
   saveContent as saveContentRecord,
   subscribeWorkspace,
   unsaveContent as unsaveContentRecord,
@@ -54,6 +57,18 @@ export function useProjects() {
     return ok;
   }, []);
 
+  const archiveProject = useCallback((id: string) => {
+    const project = archiveProjectRecord(id);
+    refreshWorkspace();
+    return project;
+  }, []);
+
+  const duplicateProject = useCallback((id: string) => {
+    const project = duplicateProjectRecord(id);
+    refreshWorkspace();
+    return project;
+  }, []);
+
   const saveContent = useCallback((input: SaveContentInput) => {
     const content = saveContentRecord(input);
     refreshWorkspace();
@@ -66,6 +81,12 @@ export function useProjects() {
     return ok;
   }, []);
 
+  const restoreVersion = useCallback((contentId: string, versionId: string) => {
+    const content = restoreContentVersionRecord(contentId, versionId);
+    refreshWorkspace();
+    return content;
+  }, []);
+
   const saveByKind = useCallback(
     (
       kind: PersistedContentKind,
@@ -73,9 +94,31 @@ export function useProjects() {
       payload: PersistedContent["payload"],
       projectId?: string | null,
     ) => {
-      return saveContent({ kind, title, payload, projectId });
+      // Auto-create a project shell when saving unassigned work so the
+      // Creator Workspace home always has something openable.
+      let resolvedProjectId = projectId ?? null;
+      if (!resolvedProjectId) {
+        const project = createProjectRecord({
+          name: title.trim() || "Untitled project",
+          description: `Saved from ${kind}`,
+          status: "draft",
+          tags: [],
+        });
+        resolvedProjectId = project.id;
+      }
+      const content = saveContentRecord({
+        kind,
+        title,
+        payload,
+        projectId: resolvedProjectId,
+      });
+      updateProjectRecord(resolvedProjectId, {
+        primaryContentId: content.id,
+      });
+      refreshWorkspace();
+      return content;
     },
-    [saveContent],
+    [],
   );
 
   const getProjectContents = useCallback(
@@ -89,8 +132,11 @@ export function useProjects() {
     createProject,
     updateProject,
     deleteProject,
+    archiveProject,
+    duplicateProject,
     saveContent,
     unsaveContent,
+    restoreVersion,
     saveByKind,
     getProjectContents,
   };
