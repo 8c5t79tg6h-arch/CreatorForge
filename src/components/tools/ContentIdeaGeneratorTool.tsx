@@ -62,6 +62,9 @@ export function ContentIdeaGeneratorTool() {
     contentType: "Short-form video",
     tone: "Educational",
     count: 5,
+    audience: "",
+    goal: "",
+    customInstructions: "",
   });
 
   const canSubmit = useMemo(
@@ -214,6 +217,35 @@ export function ContentIdeaGeneratorTool() {
             max={12}
             value={input.count}
             onChange={(e) => update("count", Number(e.target.value))}
+          />
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-sm font-semibold text-ink">Audience</span>
+          <input
+            className={fieldClass}
+            value={input.audience ?? ""}
+            onChange={(e) => update("audience", e.target.value)}
+            placeholder="e.g. indie founders 20–35"
+          />
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-sm font-semibold text-ink">Goal</span>
+          <input
+            className={fieldClass}
+            value={input.goal ?? ""}
+            onChange={(e) => update("goal", e.target.value)}
+            placeholder="e.g. grow subscribers"
+          />
+        </label>
+        <label className="space-y-1.5 md:col-span-2">
+          <span className="text-sm font-semibold text-ink">
+            Custom instructions
+          </span>
+          <input
+            className={fieldClass}
+            value={input.customInstructions ?? ""}
+            onChange={(e) => update("customInstructions", e.target.value)}
+            placeholder="Optional constraints or style notes"
           />
         </label>
         <SaveDestination

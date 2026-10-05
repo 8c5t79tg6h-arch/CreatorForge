@@ -24,12 +24,17 @@ import { structuredGenerate } from "./structured";
 import { normalizeGenerationResult } from "./normalize";
 
 import { REFINE_PRESETS } from "@/lib/workspace/refine-presets";
+import {
+  sanitizeProjectAiContext,
+  type ProjectAiContext,
+} from "@/lib/workspace/project-ai-context";
 
 export type RefineRequest = {
   targetKind: PersistedContentKind;
   instruction: string;
   title: string;
   payload: PersistedContent["payload"];
+  projectContext?: ProjectAiContext;
 };
 
 export type RefineResult = {
@@ -77,6 +82,7 @@ export function validateRefineRequest(raw: unknown): RefineRequest {
         ? body.title.trim()
         : "Untitled",
     payload: body.payload as PersistedContent["payload"],
+    projectContext: sanitizeProjectAiContext(body.projectContext),
   };
 }
 
@@ -232,11 +238,12 @@ function mockRefine(request: RefineRequest): RefineResult {
 }
 
 async function openaiRefine(request: RefineRequest): Promise<RefineResult> {
-  const system = `You refine CreatorForge ${request.targetKind} content. Apply the user's instruction. Return JSON only matching the schema. Preserve structure and required fields. Do not drop items unless shortening is explicitly requested.`;
+  const system = `You refine CreatorForge ${request.targetKind} content. Apply the user's instruction carefully. Return JSON only matching the schema. Preserve structure and required fields. Do not drop items unless shortening is explicitly requested. Use projectContext only as soft creative context for this project — never invent unrelated brands or other projects.`;
   const user = JSON.stringify({
     instruction: request.instruction,
     title: request.title,
     payload: request.payload,
+    projectContext: request.projectContext ?? null,
   });
 
   if (request.targetKind === "content-idea") {
@@ -344,6 +351,7 @@ export async function runRefine(raw: unknown): Promise<RefineResult> {
   // Ensure providers are registered by callers; mock path does not need OpenAI.
   getAIProvider(providerName === "openai" ? "openai" : "mock");
 
+  let result: RefineResult;
   if (providerName === "openai") {
     if (!getOpenAIConfig().apiKey) {
       throw new GenerationServiceError(
@@ -351,8 +359,38 @@ export async function runRefine(raw: unknown): Promise<RefineResult> {
         "OPENAI_API_KEY is not configured",
       );
     }
-    return openaiRefine(request);
+    result = await openaiRefine(request);
+  } else {
+    result = mockRefine(request);
   }
 
-  return mockRefine(request);
+  assertUsefulRefineResult(result);
+  return result;
+}
+
+function assertUsefulRefineResult(result: RefineResult): void {
+  if (!result.title.trim()) {
+    throw new GenerationServiceError(
+      "provider_error",
+      "Refine returned empty content",
+    );
+  }
+  const payload = result.payload as Record<string, unknown>;
+  if ("ideas" in payload) {
+    const ideas = payload.ideas;
+    if (!Array.isArray(ideas) || ideas.length === 0) {
+      throw new GenerationServiceError(
+        "provider_error",
+        "Refine returned no ideas",
+      );
+    }
+  }
+  if ("result" in payload) {
+    if (!payload.result || typeof payload.result !== "object") {
+      throw new GenerationServiceError(
+        "provider_error",
+        "Refine returned empty result",
+      );
+    }
+  }
 }

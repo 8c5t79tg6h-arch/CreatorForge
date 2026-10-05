@@ -112,6 +112,7 @@ export default function ProjectsPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ProjectFilter>("all");
   const [sort, setSort] = useState<ProjectSort>("updated");
+  const [showByType, setShowByType] = useState(false);
 
   const visible = useMemo(
     () =>
@@ -385,19 +386,40 @@ export default function ProjectsPage() {
             href: "/dashboard/projects",
             label: "Browse projects",
           })}
-          {renderSection(
-            "Content Ideas",
-            byType["content-idea"].slice(0, 4),
-          )}
-          {renderSection(
-            "Coding Prompts",
-            byType["coding-prompt"].slice(0, 4),
-          )}
-          {renderSection("Roblox", byType["roblox-game"].slice(0, 4))}
-          {renderSection(
-            "30-Day Planner",
-            byType["thirty-day-planner"].slice(0, 4),
-          )}
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-2xl text-ink">Browse by type</h2>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowByType((value) => !value)}
+              >
+                {showByType ? "Hide" : "Show"}
+              </Button>
+            </div>
+            {showByType ? (
+              <div className="space-y-8">
+                {renderSection(
+                  "Content Ideas",
+                  byType["content-idea"].slice(0, 4),
+                )}
+                {renderSection(
+                  "Coding Prompts",
+                  byType["coding-prompt"].slice(0, 4),
+                )}
+                {renderSection("Roblox", byType["roblox-game"].slice(0, 4))}
+                {renderSection(
+                  "30-Day Planner",
+                  byType["thirty-day-planner"].slice(0, 4),
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">
+                Show type groups when you want to browse by Content Ideas,
+                Coding Prompts, Roblox, or 30-Day Planner.
+              </p>
+            )}
+          </section>
         </>
       )}
     </div>

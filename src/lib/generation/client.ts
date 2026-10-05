@@ -1,5 +1,6 @@
 import type { GenerationRequest, GenerationResult } from "./types";
 import { GenerationServiceError } from "./types";
+import { fetchJsonWithTimeout } from "./fetch-json";
 
 function isGenerationResult(value: unknown): value is GenerationResult {
   if (!value || typeof value !== "object") return false;
@@ -17,25 +18,24 @@ function isGenerationResult(value: unknown): value is GenerationResult {
 export async function generateViaApi(
   request: GenerationRequest,
 ): Promise<GenerationResult> {
-  const response = await fetch("/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
-  });
-
-  const data = (await response.json().catch(() => null)) as
-    | GenerationResult
-    | { error?: string; code?: string }
-    | null;
+  const { response, data } = await fetchJsonWithTimeout(
+    "/api/generate",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+    { timeoutMessage: "Generation timed out. Try again." },
+  );
 
   if (!response.ok) {
     const message =
       data && typeof data === "object" && "error" in data && data.error
-        ? String(data.error)
+        ? String((data as { error?: string }).error)
         : `Generation failed (${response.status})`;
     const code =
       data && typeof data === "object" && "code" in data && data.code
-        ? (String(data.code) as GenerationServiceError["code"])
+        ? (String((data as { code?: string }).code) as GenerationServiceError["code"])
         : "provider_error";
     throw new GenerationServiceError(code, message);
   }

@@ -68,9 +68,10 @@ function normalizeContentIdeaResult(
   const count = request.input.count;
   const ideas: ContentIdea[] = ideasRaw.slice(0, count).map((item, index) => {
     const idea = asRecord(item, `idea[${index}]`);
+    const title = requireNonEmptyString(idea.title, "idea.title");
     return {
       id: requireNonEmptyString(idea.id ?? `idea-${index + 1}`, "idea.id"),
-      title: requireNonEmptyString(idea.title, "idea.title"),
+      title,
       description: requireNonEmptyString(idea.description, "idea.description"),
       format: requireNonEmptyString(
         idea.format ?? request.input.contentType,
@@ -82,6 +83,22 @@ function normalizeContentIdeaResult(
         request.input.platform,
       ),
       keywords: requireStringArray(idea.keywords ?? [], "idea.keywords"),
+      hook:
+        typeof idea.hook === "string" && idea.hook.trim()
+          ? idea.hook.trim()
+          : title,
+      audience:
+        typeof idea.audience === "string" && idea.audience.trim()
+          ? idea.audience.trim()
+          : request.input.audience?.trim() || undefined,
+      cta:
+        typeof idea.cta === "string" && idea.cta.trim()
+          ? idea.cta.trim()
+          : undefined,
+      improvementNotes:
+        typeof idea.improvementNotes === "string" && idea.improvementNotes.trim()
+          ? idea.improvementNotes.trim()
+          : undefined,
     };
   });
 

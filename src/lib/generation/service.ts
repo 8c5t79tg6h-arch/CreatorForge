@@ -1,5 +1,6 @@
 import { getAIProvider, getOpenAIConfig, resolveProviderName } from "./config";
 import { normalizeGenerationResult } from "./normalize";
+import { openaiProviderForRequest } from "./openai-provider";
 import type {
   AIProvider,
   AIProviderName,
@@ -41,7 +42,10 @@ export async function runGeneration(
   providerName?: AIProviderName,
 ): Promise<GenerationResult> {
   const resolved = providerName ?? resolveProviderName();
-  const provider = getAIProvider(resolved);
+  const provider =
+    resolved === "openai"
+      ? openaiProviderForRequest(request)
+      : getAIProvider("mock");
 
   if (resolved === "openai" && !getOpenAIConfig().apiKey) {
     throw new GenerationServiceError(

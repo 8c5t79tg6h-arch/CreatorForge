@@ -1,6 +1,7 @@
 import type {
   CodingPromptInput,
   ContentIdeaInput,
+  GenerationProjectContext,
   GenerationRequest,
   RobloxGameInput,
   ThirtyDayPlannerInput,
@@ -20,6 +21,7 @@ import {
   ROBLOX_MONETIZATION,
   requireEnum,
 } from "./catalog";
+import { sanitizeProjectAiContext } from "@/lib/workspace/project-ai-context";
 
 function requireString(value: unknown, field: string): string {
   if (typeof value !== "string" || !value.trim()) {
@@ -53,6 +55,19 @@ export function validateContentIdeaInput(raw: unknown): ContentIdeaInput {
     contentType: requireEnum(input.contentType, "contentType", CONTENT_TYPES),
     tone: requireEnum(input.tone, "tone", CONTENT_TONES),
     count: Math.min(Math.max(requireNumber(input.count, "count"), 1), 12),
+    audience:
+      typeof input.audience === "string" && input.audience.trim()
+        ? input.audience.trim().slice(0, 200)
+        : undefined,
+    goal:
+      typeof input.goal === "string" && input.goal.trim()
+        ? input.goal.trim().slice(0, 200)
+        : undefined,
+    customInstructions:
+      typeof input.customInstructions === "string" &&
+      input.customInstructions.trim()
+        ? input.customInstructions.trim().slice(0, 1000)
+        : undefined,
   };
 }
 
@@ -144,23 +159,41 @@ export function validateGenerationRequest(raw: unknown): GenerationRequest {
   if (!raw || typeof raw !== "object") {
     throw new GenerationServiceError("invalid_request", "body is required");
   }
-  const body = raw as { kind?: unknown; input?: unknown };
+  const body = raw as {
+    kind?: unknown;
+    input?: unknown;
+    projectContext?: unknown;
+  };
+  const projectContext = sanitizeProjectAiContext(body.projectContext) as
+    | GenerationProjectContext
+    | undefined;
+
   if (body.kind === "content-idea") {
-    return { kind: "content-idea", input: validateContentIdeaInput(body.input) };
+    return {
+      kind: "content-idea",
+      input: validateContentIdeaInput(body.input),
+      projectContext,
+    };
   }
   if (body.kind === "coding-prompt") {
     return {
       kind: "coding-prompt",
       input: validateCodingPromptInput(body.input),
+      projectContext,
     };
   }
   if (body.kind === "roblox-game") {
-    return { kind: "roblox-game", input: validateRobloxGameInput(body.input) };
+    return {
+      kind: "roblox-game",
+      input: validateRobloxGameInput(body.input),
+      projectContext,
+    };
   }
   if (body.kind === "thirty-day-planner") {
     return {
       kind: "thirty-day-planner",
       input: validateThirtyDayPlannerInput(body.input),
+      projectContext,
     };
   }
   throw new GenerationServiceError(

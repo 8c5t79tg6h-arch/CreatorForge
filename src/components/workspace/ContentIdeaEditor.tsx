@@ -9,10 +9,7 @@ import {
 const fieldClass =
   "w-full rounded-[12px] border border-line bg-bg px-3 py-2.5 text-sm text-ink outline-none transition focus:border-accent";
 
-export type EditableIdea = ContentIdea & {
-  hook?: string;
-  audience?: string;
-};
+export type EditableIdea = ContentIdea;
 
 type Props = {
   ideas: EditableIdea[];
@@ -97,6 +94,28 @@ export function ContentIdeaEditor({ ideas, onChange }: Props) {
                 value={idea.audience ?? ""}
                 onChange={(e) => update(index, { audience: e.target.value })}
                 placeholder="Who it's for"
+              />
+            </label>
+            <label className="space-y-1.5 sm:col-span-2">
+              <span className="text-sm font-semibold text-ink">CTA</span>
+              <input
+                className={fieldClass}
+                value={idea.cta ?? ""}
+                onChange={(e) => update(index, { cta: e.target.value })}
+                placeholder="Call to action"
+              />
+            </label>
+            <label className="space-y-1.5 sm:col-span-3">
+              <span className="text-sm font-semibold text-ink">
+                Improvement notes
+              </span>
+              <input
+                className={fieldClass}
+                value={idea.improvementNotes ?? ""}
+                onChange={(e) =>
+                  update(index, { improvementNotes: e.target.value })
+                }
+                placeholder="Optional tips to strengthen this idea"
               />
             </label>
           </div>

@@ -44,7 +44,13 @@ export function generateContentIdeas(
     return {
       id: `${topicSlug}-${index + 1}`,
       title,
-      description: `A ${input.tone.toLowerCase()} ${input.contentType.toLowerCase()} for ${input.platform} that uses a ${format} structure to make "${input.topic}" feel actionable and shareable.`,
+      description: `A ${input.tone.toLowerCase()} ${input.contentType.toLowerCase()} for ${input.platform} that uses a ${format} structure to make "${input.topic}" feel actionable and shareable.${
+        input.audience ? ` Aimed at ${input.audience}.` : ""
+      }${input.goal ? ` Goal: ${input.goal}.` : ""}${
+        input.customInstructions
+          ? ` Notes: ${input.customInstructions}`
+          : ""
+      }`,
       format: input.contentType,
       platform: input.platform,
       keywords: [
@@ -54,6 +60,10 @@ export function generateContentIdeas(
         format.split(" ")[0] ?? "creator",
         "creatorforge",
       ].map((part) => part.toLowerCase()),
+      hook: `${hook} ${input.topic}`,
+      audience: input.audience || `${input.platform} creators`,
+      cta: "Follow for the next breakdown",
+      improvementNotes: "Test the hook in the first 2 seconds; tighten CTA.",
     };
   });
 

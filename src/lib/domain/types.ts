@@ -28,6 +28,10 @@ export type ContentIdeaInput = {
   contentType: ContentType;
   tone: ContentTone;
   count: number;
+  /** Optional creator controls */
+  audience?: string;
+  goal?: string;
+  customInstructions?: string;
 };
 
 export type ContentIdea = {
@@ -37,6 +41,10 @@ export type ContentIdea = {
   format: string;
   platform: string;
   keywords: string[];
+  hook?: string;
+  audience?: string;
+  cta?: string;
+  improvementNotes?: string;
 };
 
 export type ContentIdeaResult = {
@@ -173,11 +181,26 @@ export type GenerationKind =
   | "roblox-game"
   | "thirty-day-planner";
 
-export type GenerationRequest =
+/** Scoped project context for AI — never include other projects. */
+export type GenerationProjectContext = {
+  projectName: string;
+  projectDescription?: string;
+  tags?: string[];
+  contentTitle?: string;
+  contentKind?: string;
+  contentStatus?: string;
+};
+
+type WithProjectContext<T> = T & {
+  projectContext?: GenerationProjectContext;
+};
+
+export type GenerationRequest = WithProjectContext<
   | { kind: "content-idea"; input: ContentIdeaInput }
   | { kind: "coding-prompt"; input: CodingPromptInput }
   | { kind: "roblox-game"; input: RobloxGameInput }
-  | { kind: "thirty-day-planner"; input: ThirtyDayPlannerInput };
+  | { kind: "thirty-day-planner"; input: ThirtyDayPlannerInput }
+>;
 
 export type GenerationResult =
   | { kind: "content-idea"; result: ContentIdeaResult }

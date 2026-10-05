@@ -13,10 +13,15 @@ import { getToolHrefForKind } from "@/data/tools";
 import { useProjects } from "@/hooks/useProjects";
 import type {
   CodingPromptResult,
+  ContentIdeaInput,
+  ContentPlatform,
+  ContentTone,
   RobloxGameResult,
   ThirtyDayPlannerResult,
 } from "@/lib/domain/types";
-import { GenerationServiceError } from "@/lib/generation";
+import { copyText } from "@/lib/copy";
+import { generateViaApi, GenerationServiceError } from "@/lib/generation";
+import { CONTENT_PLATFORMS, CONTENT_TONES } from "@/lib/generation/catalog";
 import {
   DEFAULT_TAG_OPTIONS,
   type ContentStatus,
@@ -25,6 +30,8 @@ import {
   type ProjectStatus,
 } from "@/lib/persistence";
 import { REFINE_PRESETS } from "@/lib/workspace/refine-presets";
+import { formatContentForCopy } from "@/lib/workspace/format-content";
+import { buildProjectAiContext } from "@/lib/workspace/project-ai-context";
 import {
   CONTENT_STATUS_LABELS,
   STATUS_LABELS,
@@ -38,27 +45,6 @@ const fieldClass =
 
 function clonePayload(payload: PersistedContent["payload"]) {
   return structuredClone(payload);
-}
-
-function summarizePayload(payload: PersistedContent["payload"] | null): string {
-  if (!payload || typeof payload !== "object") return "No content";
-  if ("ideas" in payload && Array.isArray(payload.ideas)) {
-    const ideas = payload.ideas as Array<{ title?: string; description?: string }>;
-    return ideas
-      .slice(0, 3)
-      .map((idea) => `${idea.title ?? "Idea"} — ${idea.description ?? ""}`)
-      .join("\n");
-  }
-  if ("result" in payload && payload.result && typeof payload.result === "object") {
-    const result = payload.result as Record<string, unknown>;
-    if (typeof result.fullPrompt === "string") return result.fullPrompt.slice(0, 600);
-    if (typeof result.fullPlan === "string") return result.fullPlan.slice(0, 600);
-    if (typeof result.summary === "string") return result.summary;
-    if (Array.isArray(result.posts)) {
-      return `${result.posts.length} planned posts`;
-    }
-  }
-  return JSON.stringify(payload).slice(0, 600);
 }
 
 type PendingRefine = {
@@ -108,7 +94,12 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
     REFINE_PRESETS[0],
   );
   const [customRefine, setCustomRefine] = useState("");
+  const [refineTone, setRefineTone] = useState<ContentTone | "">("");
+  const [refinePlatform, setRefinePlatform] = useState<ContentPlatform | "">(
+    "",
+  );
   const [pendingRefine, setPendingRefine] = useState<PendingRefine | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
   const [pending, startTransition] = useTransition();
   const [baseline, setBaseline] = useState(() =>
     JSON.stringify({
@@ -155,9 +146,35 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [saveState, pendingRefine]);
 
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(() => setMessage(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
+
+  function projectContext() {
+    return buildProjectAiContext({
+      projectName: name,
+      projectDescription: description,
+      tags,
+      contentTitle: title,
+      contentKind: primary?.kind,
+      contentStatus,
+    });
+  }
+
   function markMetaDirty() {
     setMessage(null);
     setError(null);
+  }
+
+  function buildRefineInstruction(): string {
+    const base = customRefine.trim() || refineInstruction;
+    const extras = [
+      refineTone ? `Tone: ${refineTone}` : null,
+      refinePlatform ? `Platform: ${refinePlatform}` : null,
+    ].filter(Boolean);
+    return extras.length ? `${base}\n${extras.join(" · ")}` : base;
   }
 
   function onSave() {
@@ -217,7 +234,7 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
       setError("Accept or discard the current refinement first.");
       return;
     }
-    const instruction = customRefine.trim() || refineInstruction;
+    const instruction = buildRefineInstruction();
     setError(null);
     setMessage(null);
     startTransition(async () => {
@@ -227,8 +244,8 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
           instruction,
           title,
           payload,
+          projectContext: projectContext(),
         });
-        // Review before saving — never overwrite the live project silently.
         setPendingRefine({
           title: refined.title || title,
           payload: refined.payload,
@@ -243,6 +260,105 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
               ? err.message
               : "Refine failed",
         );
+      }
+    });
+  }
+
+  async function onCopy() {
+    const text = formatContentForCopy(title, payload);
+    const ok = await copyText(text);
+    setMessage(ok ? "Copied to clipboard" : "Copy failed");
+  }
+
+  function onClearEdits() {
+    if (!window.confirm("Reset to the last saved version of this content?")) {
+      return;
+    }
+    const snapshot = JSON.parse(baseline) as {
+      name: string;
+      description: string;
+      status: ProjectStatus;
+      favorite: boolean;
+      tags: string[];
+      title: string;
+      payload: PersistedContent["payload"] | null;
+      contentStatus: ContentStatus;
+    };
+    setName(snapshot.name);
+    setDescription(snapshot.description);
+    setStatus(snapshot.status);
+    setFavorite(snapshot.favorite);
+    setTags(snapshot.tags);
+    setTitle(snapshot.title);
+    setPayload(snapshot.payload ? clonePayload(snapshot.payload) : null);
+    setContentStatus(snapshot.contentStatus);
+    setPendingRefine(null);
+    setMessage("Edits cleared — back to last saved state");
+  }
+
+  function onRegenerate() {
+    if (!primary || !payload) return;
+    if (pendingRefine) {
+      setError("Accept or discard the current refinement first.");
+      return;
+    }
+    const input = (payload as { input?: unknown }).input;
+    if (!input || typeof input !== "object") {
+      setError("This content has no generation input to regenerate from.");
+      return;
+    }
+    setError(null);
+    setMessage(null);
+    setRegenerating(true);
+    startTransition(async () => {
+      try {
+        const generated = await generateViaApi({
+          kind: primary.kind,
+          input: input as ContentIdeaInput,
+          projectContext: projectContext(),
+        } as Parameters<typeof generateViaApi>[0]);
+
+        let nextPayload: PersistedContent["payload"];
+        let nextTitle = title;
+        if (generated.kind === "content-idea") {
+          nextPayload = {
+            input,
+            ideas: generated.result.ideas,
+          } as PersistedContent["payload"];
+          nextTitle = generated.result.ideas[0]?.title || title;
+        } else if (generated.kind === "coding-prompt") {
+          nextPayload = {
+            input,
+            result: generated.result,
+          } as PersistedContent["payload"];
+        } else if (generated.kind === "roblox-game") {
+          nextPayload = {
+            input,
+            result: generated.result,
+          } as PersistedContent["payload"];
+        } else {
+          nextPayload = {
+            input,
+            result: generated.result,
+          } as PersistedContent["payload"];
+        }
+
+        setPendingRefine({
+          title: nextTitle,
+          payload: nextPayload,
+          instruction: "Regenerate from original inputs",
+        });
+        setMessage("Review regenerated content, then Accept to save a new version.");
+      } catch (err) {
+        setError(
+          err instanceof GenerationServiceError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Regenerate failed",
+        );
+      } finally {
+        setRegenerating(false);
       }
     });
   }
@@ -615,6 +731,48 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
             />
           </div>
 
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={onCopy}
+              disabled={!payload}
+            >
+              Copy
+            </Button>
+            <Button
+              size="sm"
+              onClick={onSave}
+              disabled={saveState === "saving" || saveState === "saved"}
+            >
+              {saveState === "saving" ? "Saving…" : "Save"}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={onRefine}
+              disabled={pending || regenerating || !payload || !!pendingRefine}
+            >
+              {pending ? "Refining…" : "Refine"}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={onRegenerate}
+              disabled={pending || regenerating || !payload || !!pendingRefine}
+            >
+              {regenerating ? "Regenerating…" : "Regenerate"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onClearEdits}
+              disabled={saveState === "saved" && !pendingRefine}
+            >
+              Clear edits
+            </Button>
+          </div>
+
           {primary.kind === "content-idea" ? (
             <ContentIdeaEditor
               ideas={
@@ -717,6 +875,46 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
               </button>
             ))}
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1.5">
+              <span className="text-sm font-semibold text-ink">
+                Target tone (optional)
+              </span>
+              <select
+                className={fieldClass}
+                value={refineTone}
+                onChange={(e) =>
+                  setRefineTone(e.target.value as ContentTone | "")
+                }
+              >
+                <option value="">Keep current</option>
+                {CONTENT_TONES.map((tone) => (
+                  <option key={tone} value={tone}>
+                    {tone}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-sm font-semibold text-ink">
+                Target platform (optional)
+              </span>
+              <select
+                className={fieldClass}
+                value={refinePlatform}
+                onChange={(e) =>
+                  setRefinePlatform(e.target.value as ContentPlatform | "")
+                }
+              >
+                <option value="">Keep current</option>
+                {CONTENT_PLATFORMS.map((platform) => (
+                  <option key={platform} value={platform}>
+                    {platform}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold text-ink">
               Custom instruction
@@ -728,7 +926,10 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
               placeholder="Make this more appealing to 16–24 year old Roblox players."
             />
           </label>
-          <Button onClick={onRefine} disabled={pending || !payload || !!pendingRefine}>
+          <Button
+            onClick={onRefine}
+            disabled={pending || regenerating || !payload || !!pendingRefine}
+          >
             {pending ? "Refining…" : "Refine with AI"}
           </Button>
 
@@ -736,31 +937,96 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
             <div className="space-y-4 rounded-[12px] border border-accent/40 bg-bg p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-display text-xl text-ink">
-                  Review refinement
+                  Review proposed changes
                 </h3>
                 <Badge tone="accent">{pendingRefine.instruction}</Badge>
               </div>
-              <div className="grid gap-3 lg:grid-cols-2">
-                <div className="rounded-[12px] border border-line p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    Current
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-ink">
-                    {summarizePayload(payload)}
-                  </p>
-                </div>
-                <div className="rounded-[12px] border border-accent/30 bg-[var(--accent-soft)] p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                    Proposed
-                  </p>
-                  <p className="mt-1 font-display text-lg text-ink">
-                    {pendingRefine.title}
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-ink">
-                    {summarizePayload(pendingRefine.payload)}
-                  </p>
-                </div>
-              </div>
+              <p className="text-sm text-muted">
+                Edit the proposed result below before accepting. Your current
+                saved content stays unchanged until you accept.
+              </p>
+              <input
+                className={fieldClass}
+                value={pendingRefine.title}
+                onChange={(e) =>
+                  setPendingRefine({
+                    ...pendingRefine,
+                    title: e.target.value,
+                  })
+                }
+                aria-label="Proposed title"
+              />
+              {primary.kind === "content-idea" ? (
+                <ContentIdeaEditor
+                  ideas={
+                    ((pendingRefine.payload as { ideas?: EditableIdea[] })
+                      .ideas ?? []) as EditableIdea[]
+                  }
+                  onChange={(ideas) =>
+                    setPendingRefine({
+                      ...pendingRefine,
+                      payload: {
+                        ...(pendingRefine.payload as object),
+                        ideas,
+                      } as PersistedContent["payload"],
+                    })
+                  }
+                />
+              ) : null}
+              {primary.kind === "coding-prompt" ? (
+                <CodingPromptEditor
+                  result={
+                    (pendingRefine.payload as { result: CodingPromptResult })
+                      .result
+                  }
+                  onChange={(result) =>
+                    setPendingRefine({
+                      ...pendingRefine,
+                      payload: {
+                        ...(pendingRefine.payload as object),
+                        result,
+                      } as PersistedContent["payload"],
+                    })
+                  }
+                />
+              ) : null}
+              {primary.kind === "roblox-game" ? (
+                <RobloxGameEditor
+                  result={
+                    (pendingRefine.payload as { result: RobloxGameResult })
+                      .result
+                  }
+                  onChange={(result) =>
+                    setPendingRefine({
+                      ...pendingRefine,
+                      payload: {
+                        ...(pendingRefine.payload as object),
+                        result,
+                      } as PersistedContent["payload"],
+                    })
+                  }
+                />
+              ) : null}
+              {primary.kind === "thirty-day-planner" ? (
+                <ThirtyDayPlannerEditor
+                  result={
+                    (
+                      pendingRefine.payload as {
+                        result: ThirtyDayPlannerResult;
+                      }
+                    ).result
+                  }
+                  onChange={(result) =>
+                    setPendingRefine({
+                      ...pendingRefine,
+                      payload: {
+                        ...(pendingRefine.payload as object),
+                        result,
+                      } as PersistedContent["payload"],
+                    })
+                  }
+                />
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 <Button onClick={onAcceptRefine}>Accept & save version</Button>
                 <Button variant="secondary" onClick={onDiscardRefine}>
@@ -806,6 +1072,35 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
           </div>
         </section>
       ) : null}
+
+      <div className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-2 rounded-[14px] border border-line bg-bg-elevated/95 p-3 shadow-[var(--shadow)] backdrop-blur sm:hidden">
+        <Badge tone={saveState === "unsaved" ? "warm" : "accent"}>
+          {pending || regenerating
+            ? "Working…"
+            : saveState === "saving"
+              ? "Saving…"
+              : saveState === "unsaved"
+                ? "Unsaved"
+                : "Saved"}
+        </Badge>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            onClick={onSave}
+            disabled={saveState === "saving" || saveState === "saved"}
+          >
+            Save
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onRefine}
+            disabled={pending || regenerating || !payload || !!pendingRefine}
+          >
+            Refine
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
