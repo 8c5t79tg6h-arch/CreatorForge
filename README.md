@@ -51,6 +51,43 @@ OPENAI_TIMEOUT_MS=30000
 
 Secrets are server-only. Never use `NEXT_PUBLIC_` for provider keys.
 
+## Deploy to Vercel
+
+### One-time setup (phone or desktop)
+
+1. Open [vercel.com/new](https://vercel.com/new) and sign in (GitHub is easiest).
+2. **Import** `8c5t79tg6h-arch/CreatorForge`.
+3. Leave Framework Preset as **Next.js**. Root directory stays `.`.
+4. Add environment variables (checklist below), then **Deploy**.
+5. When it finishes, open the `*.vercel.app` URL — landing + dashboard should load.
+
+### Environment variable checklist
+
+| Name | Required? | Suggested value | Notes |
+| --- | --- | --- | --- |
+| `AI_PROVIDER` | Recommended | `mock` | Use `mock` for first deploy (no API key needed). |
+| `OPENAI_API_KEY` | Only if `AI_PROVIDER=openai` | your key | Server-only. Do **not** use `NEXT_PUBLIC_`. |
+| `OPENAI_MODEL` | Optional | `gpt-4o-mini` | Used only with OpenAI. |
+| `OPENAI_TIMEOUT_MS` | Optional | `30000` | Used only with OpenAI. |
+
+Apply vars to **Production** (and **Preview** if you want preview deploys to match).
+
+### Switch mock → OpenAI later
+
+1. Vercel → Project → **Settings** → **Environment Variables**
+2. Set `AI_PROVIDER` = `openai`
+3. Set `OPENAI_API_KEY` = your key
+4. Redeploy (**Deployments** → ⋯ → Redeploy)
+
+### CLI (optional)
+
+```bash
+npx vercel login
+npx vercel link
+npx vercel env pull .env.local   # after vars exist in the project
+npx vercel --prod
+```
+
 ## Scripts
 
 ```bash
