@@ -3,6 +3,7 @@ import type {
   ContentIdeaInput,
   GenerationRequest,
   RobloxGameInput,
+  ThirtyDayPlannerInput,
 } from "./types";
 import { GenerationServiceError } from "./types";
 
@@ -100,6 +101,48 @@ export function validateRobloxGameInput(raw: unknown): RobloxGameInput {
   };
 }
 
+const allowedPlatforms = new Set([
+  "YouTube",
+  "TikTok",
+  "Instagram",
+  "LinkedIn",
+  "X",
+  "Blog",
+]);
+
+export function validateThirtyDayPlannerInput(
+  raw: unknown,
+): ThirtyDayPlannerInput {
+  if (!raw || typeof raw !== "object") {
+    throw new GenerationServiceError("invalid_request", "input is required");
+  }
+  const input = raw as Record<string, unknown>;
+  const platformsRaw = Array.isArray(input.platforms) ? input.platforms : [];
+  const platforms = platformsRaw
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => allowedPlatforms.has(item)) as ThirtyDayPlannerInput["platforms"];
+
+  if (platforms.length === 0) {
+    throw new GenerationServiceError(
+      "invalid_request",
+      "platforms must include at least one supported platform",
+    );
+  }
+
+  return {
+    niche: requireString(input.niche, "niche"),
+    platforms,
+    postsPerWeek: Math.min(
+      Math.max(requireNumber(input.postsPerWeek, "postsPerWeek"), 1),
+      14,
+    ),
+    tone: requireString(input.tone, "tone") as ThirtyDayPlannerInput["tone"],
+    goal: requireString(input.goal, "goal") as ThirtyDayPlannerInput["goal"],
+    notes: typeof input.notes === "string" ? input.notes : undefined,
+  };
+}
+
 export function validateGenerationRequest(raw: unknown): GenerationRequest {
   if (!raw || typeof raw !== "object") {
     throw new GenerationServiceError("invalid_request", "body is required");
@@ -116,6 +159,12 @@ export function validateGenerationRequest(raw: unknown): GenerationRequest {
   }
   if (body.kind === "roblox-game") {
     return { kind: "roblox-game", input: validateRobloxGameInput(body.input) };
+  }
+  if (body.kind === "thirty-day-planner") {
+    return {
+      kind: "thirty-day-planner",
+      input: validateThirtyDayPlannerInput(body.input),
+    };
   }
   throw new GenerationServiceError(
     "unsupported",

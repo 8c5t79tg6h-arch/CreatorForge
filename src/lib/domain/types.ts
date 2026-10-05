@@ -135,14 +135,52 @@ export type RobloxGameResult = {
   fullPlan: string;
 };
 
-export type GenerationKind = "content-idea" | "coding-prompt" | "roblox-game";
+export type PlannerGoal =
+  | "Grow audience"
+  | "Drive sales"
+  | "Build authority"
+  | "Stay consistent"
+  | "Launch product";
+
+export type ThirtyDayPlannerInput = {
+  niche: string;
+  platforms: ContentPlatform[];
+  postsPerWeek: number;
+  tone: ContentTone;
+  goal: PlannerGoal;
+  notes?: string;
+};
+
+export type PlannedPost = {
+  id: string;
+  day: number;
+  platform: ContentPlatform;
+  contentType: ContentType;
+  title: string;
+  hook: string;
+  cta: string;
+  notes: string;
+};
+
+export type ThirtyDayPlannerResult = {
+  posts: PlannedPost[];
+  summary: string;
+};
+
+export type GenerationKind =
+  | "content-idea"
+  | "coding-prompt"
+  | "roblox-game"
+  | "thirty-day-planner";
 
 export type GenerationRequest =
   | { kind: "content-idea"; input: ContentIdeaInput }
   | { kind: "coding-prompt"; input: CodingPromptInput }
-  | { kind: "roblox-game"; input: RobloxGameInput };
+  | { kind: "roblox-game"; input: RobloxGameInput }
+  | { kind: "thirty-day-planner"; input: ThirtyDayPlannerInput };
 
 export type GenerationResult =
   | { kind: "content-idea"; result: ContentIdeaResult }
   | { kind: "coding-prompt"; result: CodingPromptResult }
-  | { kind: "roblox-game"; result: RobloxGameResult };
+  | { kind: "roblox-game"; result: RobloxGameResult }
+  | { kind: "thirty-day-planner"; result: ThirtyDayPlannerResult };

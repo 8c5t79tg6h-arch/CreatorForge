@@ -8,6 +8,8 @@ import type {
   GenerationResult,
   RobloxGameInput,
   RobloxGameResult,
+  ThirtyDayPlannerInput,
+  ThirtyDayPlannerResult,
 } from "@/lib/domain/types";
 
 export type AIProviderName = "mock" | "openai";
@@ -17,6 +19,9 @@ export type AIProvider = {
   generateContentIdeas(input: ContentIdeaInput): Promise<ContentIdeaResult>;
   generateCodingPrompt(input: CodingPromptInput): Promise<CodingPromptResult>;
   generateRobloxGame(input: RobloxGameInput): Promise<RobloxGameResult>;
+  generateThirtyDayPlan(
+    input: ThirtyDayPlannerInput,
+  ): Promise<ThirtyDayPlannerResult>;
 };
 
 export type GenerationServiceErrorCode =
@@ -45,4 +50,6 @@ export type {
   GenerationResult,
   RobloxGameInput,
   RobloxGameResult,
+  ThirtyDayPlannerInput,
+  ThirtyDayPlannerResult,
 };

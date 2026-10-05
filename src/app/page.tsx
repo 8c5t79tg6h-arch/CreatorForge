@@ -29,8 +29,8 @@ export default function LandingPage() {
             Forge ideas into publish-ready creator assets.
           </h1>
           <p className="cf-fade-up-delay-2 mt-5 max-w-xl text-lg leading-relaxed text-muted sm:text-xl">
-            Generate content ideas, coding prompts, and Roblox game plans in one
-            calm workspace built for makers.
+            Generate content ideas, coding prompts, Roblox game plans, and a 30-day
+            publishing calendar in one calm workspace built for makers.
           </p>
           <div className="cf-fade-up-delay-2 mt-10 flex flex-wrap items-center gap-3">
             <Link href="/dashboard">

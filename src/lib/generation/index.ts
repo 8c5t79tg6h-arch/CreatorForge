@@ -13,6 +13,7 @@ export {
   validateContentIdeaInput,
   validateCodingPromptInput,
   validateRobloxGameInput,
+  validateThirtyDayPlannerInput,
 } from "./validate";
 
 // Server-only helpers live in ./server-boundary and ./server-register.

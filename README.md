@@ -1,7 +1,7 @@
 # CreatorForge
 
 CreatorForge is a Next.js App Router workspace for generating creator assets:
-content ideas, AI coding prompts, and Roblox game plans.
+content ideas, AI coding prompts, Roblox game plans, and 30-day content calendars.
 
 ## Stack
 
@@ -11,31 +11,33 @@ content ideas, AI coding prompts, and Roblox game plans.
 - localStorage persistence
 - Mock or OpenAI generation providers
 
-## Stages 1–8
+## Stages 1–9
 
 1. **Scaffold & brand** — landing composition, fonts, CSS variables, dashboard shell
-2. **Tools catalog** — available + soon tools with dedicated routes
+2. **Tools catalog** — available tools with dedicated routes
 3. **Content Idea Generator** — form, API generation, copy/save/regenerate
 4. **Persistence** — projects + content repositories, migrate, hooks
 5. **Coding Prompt Builder** — structured prompt sections + fullPrompt
 6. **Generation service** — provider registry, validation, `/api/generate`
 7. **Roblox Game Builder** — full plan contract + UI
-8. **OpenAI provider** — `json_schema` structured outputs for all three tools
+8. **OpenAI provider** — `json_schema` structured outputs for all tools
+9. **30-Day Content Planner** — month calendar, save/export polish, dashboard recent saves
 
 ## Routes
 
 | Route | Purpose |
 | --- | --- |
 | `/` | Landing |
-| `/dashboard` | Overview |
+| `/dashboard` | Overview + recent saves |
 | `/dashboard/tools` | Tool catalog |
 | `/dashboard/tools/content-idea-generator` | Content ideas |
 | `/dashboard/tools/ai-coding-prompt-builder` | Coding prompts |
 | `/dashboard/tools/roblox-game-builder` | Roblox plans |
-| `/dashboard/tools/[slug]` | Soon tools |
+| `/dashboard/tools/thirty-day-content-planner` | 30-day calendar |
+| `/dashboard/tools/[slug]` | Soon tools (roadmap placeholders) |
 | `/dashboard/projects` | Project list |
-| `/dashboard/projects/[id]` | Project detail |
-| `/dashboard/settings` | Local workspace settings |
+| `/dashboard/projects/[id]` | Project detail + save preview |
+| `/dashboard/settings` | Backup/export/import + clear |
 | `POST /api/generate` | Server-only generation |
 
 ## Environment
@@ -103,6 +105,7 @@ npm run verify:stage5
 npm run verify:stage6
 npm run verify:stage7
 npm run verify:stage8
+npm run verify:stage9
 ```
 
 ## Architecture notes

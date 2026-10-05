@@ -2,6 +2,7 @@ import {
   generateCodingPrompt,
   generateContentIdeas,
   generateRobloxGame,
+  generateThirtyDayPlan,
 } from "@/lib/domain";
 import type { AIProvider } from "./types";
 
@@ -15,5 +16,8 @@ export const mockProvider: AIProvider = {
   },
   async generateRobloxGame(input) {
     return generateRobloxGame(input);
+  },
+  async generateThirtyDayPlan(input) {
+    return generateThirtyDayPlan(input);
   },
 };

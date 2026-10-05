@@ -3,6 +3,8 @@ import type {
   ContentIdeaInput,
   ContentIdeaResult,
   RobloxGameInput,
+  ThirtyDayPlannerInput,
+  ThirtyDayPlannerResult,
 } from "@/lib/domain/types";
 import { composeFullPrompt } from "@/lib/domain/codingPromptGenerator";
 import { composeFullPlan } from "@/lib/domain/robloxGameGenerator";
@@ -91,6 +93,44 @@ const robloxGameSchema: JsonSchema = {
         mapAndWorld: { type: "string" },
         mvpScope: { type: "array", items: { type: "string" } },
         stretchGoals: { type: "array", items: { type: "string" } },
+      },
+    },
+  },
+};
+
+const thirtyDayPlannerSchema: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["posts", "summary"],
+  properties: {
+    summary: { type: "string" },
+    posts: {
+      type: "array",
+      minItems: 30,
+      maxItems: 30,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "id",
+          "day",
+          "platform",
+          "contentType",
+          "title",
+          "hook",
+          "cta",
+          "notes",
+        ],
+        properties: {
+          id: { type: "string" },
+          day: { type: "integer" },
+          platform: { type: "string" },
+          contentType: { type: "string" },
+          title: { type: "string" },
+          hook: { type: "string" },
+          cta: { type: "string" },
+          notes: { type: "string" },
+        },
       },
     },
   },
@@ -202,5 +242,15 @@ export const openaiProvider: AIProvider = {
       sections: data.sections,
       fullPlan: composeFullPlan(input, data.sections),
     };
+  },
+  async generateThirtyDayPlan(input: ThirtyDayPlannerInput) {
+    const data = await structuredGenerate<ThirtyDayPlannerResult>({
+      system:
+        "You create a practical 30-day content calendar for creators. Return exactly 30 posts (days 1-30) as JSON matching the schema. Rotate platforms from the input list, keep hooks short, and match the requested tone and goal.",
+      user: JSON.stringify(input),
+      schemaName: "thirty_day_planner_result",
+      schema: thirtyDayPlannerSchema,
+    });
+    return data;
   },
 };

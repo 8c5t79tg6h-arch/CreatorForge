@@ -6,7 +6,8 @@ export const WORKSPACE_VERSION = 1;
 export type PersistedContentKind =
   | "content-idea"
   | "coding-prompt"
-  | "roblox-game";
+  | "roblox-game"
+  | "thirty-day-planner";
 
 export type PersistedProject = {
   id: string;
@@ -50,10 +51,19 @@ export type PersistedRobloxGame = PersistedContentBase & {
   };
 };
 
+export type PersistedThirtyDayPlanner = PersistedContentBase & {
+  kind: "thirty-day-planner";
+  payload: {
+    input: unknown;
+    result: unknown;
+  };
+};
+
 export type PersistedContent =
   | PersistedContentIdea
   | PersistedCodingPrompt
-  | PersistedRobloxGame;
+  | PersistedRobloxGame
+  | PersistedThirtyDayPlanner;
 
 export type WorkspaceSnapshot = {
   version: number;
@@ -112,7 +122,8 @@ function isContent(value: unknown): value is PersistedContent {
     (c.projectId === null || typeof c.projectId === "string") &&
     (c.kind === "content-idea" ||
       c.kind === "coding-prompt" ||
-      c.kind === "roblox-game") &&
+      c.kind === "roblox-game" ||
+      c.kind === "thirty-day-planner") &&
     typeof c.title === "string" &&
     typeof c.createdAt === "string" &&
     typeof c.updatedAt === "string" &&

@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s · CreatorForge",
   },
   description:
-    "Forge content ideas, coding prompts, and Roblox game plans for creators.",
+    "Forge content ideas, coding prompts, Roblox game plans, and 30-day content calendars for creators.",
 };
 
 export default function RootLayout({

@@ -3,7 +3,8 @@ export type ToolStatus = "available" | "soon";
 export type ToolKind =
   | "content-idea"
   | "coding-prompt"
-  | "roblox-game";
+  | "roblox-game"
+  | "thirty-day-planner";
 
 export type ToolDefinition = {
   slug: string;
@@ -46,8 +47,9 @@ export const tools: ToolDefinition[] = [
     slug: "thirty-day-content-planner",
     name: "30-Day Content Planner",
     description:
-      "Map a full month of posts across platforms — shipping soon.",
-    status: "soon",
+      "Map a full month of posts across platforms with hooks, CTAs, and cadence.",
+    status: "available",
+    kind: "thirty-day-planner",
     href: "/dashboard/tools/thirty-day-content-planner",
   },
 ];
@@ -58,4 +60,9 @@ export function getToolBySlug(slug: string): ToolDefinition | undefined {
 
 export function getAvailableTools(): ToolDefinition[] {
   return tools.filter((tool) => tool.status === "available");
+}
+
+export function getToolHrefForKind(kind: string): string | null {
+  const tool = tools.find((item) => item.kind === kind);
+  return tool?.href ?? null;
 }

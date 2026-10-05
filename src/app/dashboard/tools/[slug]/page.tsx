@@ -37,7 +37,7 @@ export default async function ToolSlugPage({ params }: PageProps) {
       <p className="text-base leading-relaxed text-muted">{tool.description}</p>
       <p className="rounded-[14px] border border-line bg-bg-elevated p-5 text-sm text-muted">
         This tool is on the roadmap. Explore available generators while we finish
-        the 30-day planner experience.
+        the next CreatorForge experience.
       </p>
       <Link href="/dashboard/tools">
         <Button variant="secondary">Back to tools</Button>

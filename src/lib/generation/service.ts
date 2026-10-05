@@ -27,6 +27,10 @@ export async function runGeneration(
       const result = await provider.generateRobloxGame(request.input);
       return { kind: "roblox-game", result };
     }
+    case "thirty-day-planner": {
+      const result = await provider.generateThirtyDayPlan(request.input);
+      return { kind: "thirty-day-planner", result };
+    }
     default: {
       const _exhaustive: never = request;
       throw new GenerationServiceError(

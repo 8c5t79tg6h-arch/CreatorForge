@@ -17,8 +17,8 @@ export default function ToolsPage() {
           Generator catalog
         </h1>
         <p className="max-w-2xl text-base text-muted">
-          Available tools are ready to run. Soon tools stay discoverable so you
-          can plan your workflow ahead.
+          Four generators for ideas, prompts, Roblox plans, and a full 30-day
+          publishing calendar.
         </p>
       </section>
 
