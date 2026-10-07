@@ -17,7 +17,8 @@
     "verify:stage10": "tsx scripts/stage10-verify.ts",
     "verify:stage11": "tsx scripts/stage11-verify.ts",
     "verify:stage12": "tsx scripts/stage12-verify.ts",
-    "verify:stage13": "tsx scripts/stage13-verify.ts"
+    "verify:stage13": "tsx scripts/stage13-verify.ts",
+    "verify:billing": "tsx scripts/billing-verify.ts"
   },
   "dependencies": {
     "next": "16.3.6",

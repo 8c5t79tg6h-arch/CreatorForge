@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { useBilling } from "@/hooks/useBilling";
 
 const navItems = [
   { href: "/dashboard", label: "Overview", exact: true },
@@ -20,6 +22,7 @@ function isActive(pathname: string, href: string, exact?: boolean) {
 export function DashboardNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { summary } = useBilling();
 
   return (
     <header className="border-b border-line bg-bg-elevated/90 backdrop-blur">
@@ -49,6 +52,11 @@ export function DashboardNav() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link href="/dashboard/settings#billing" className="hidden sm:block">
+            <Badge tone={summary.isPro ? "accent" : "warm"}>
+              {summary.isPro ? "Pro" : "Free"}
+            </Badge>
+          </Link>
           <Link href="/dashboard/tools" className="hidden sm:block">
             <Button size="sm">New generation</Button>
           </Link>
@@ -87,6 +95,13 @@ export function DashboardNav() {
                 </Link>
               );
             })}
+            <Link
+              href="/dashboard/settings#billing"
+              onClick={() => setOpen(false)}
+              className="rounded-[12px] px-3 py-2.5 text-sm font-semibold text-muted"
+            >
+              Plan: {summary.isPro ? "Pro Creator" : "Free"}
+            </Link>
           </div>
         </nav>
       ) : null}

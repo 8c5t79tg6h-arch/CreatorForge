@@ -14,7 +14,8 @@ import type {
   RobloxMonetization,
 } from "@/lib/domain/types";
 import { copyText } from "@/lib/copy";
-import { generateViaApi, GenerationServiceError } from "@/lib/generation";
+import { generateViaApi } from "@/lib/generation";
+import { formatAiError } from "@/lib/billing";
 
 const genres: RobloxGenre[] = [
   "Obby",
@@ -97,13 +98,7 @@ export function RobloxGameBuilderTool() {
         setResult(response.result);
         setStatus("Game plan ready");
       } catch (err) {
-        setError(
-          err instanceof GenerationServiceError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "Generation failed",
-        );
+        setError(formatAiError(err, "Generation failed"));
       }
     });
   }

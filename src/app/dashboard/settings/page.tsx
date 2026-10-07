@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { BillingPlans } from "@/components/billing/BillingPlans";
+import { PlanBanner } from "@/components/billing/PlanBanner";
 import { getToolHrefForKind } from "@/data/tools";
 import { useProjects } from "@/hooks/useProjects";
 import {
@@ -76,10 +78,12 @@ export default function SettingsPage() {
           Workspace preferences
         </h1>
         <p className="max-w-2xl text-base text-muted">
-          CreatorForge stores projects and saves in your browser. Generation uses
-          the server-side `AI_PROVIDER` setting (`mock` or `openai`).
+          Manage your CreatorForge plan, backups, and local workspace data.
         </p>
       </section>
+
+      <PlanBanner />
+      <BillingPlans />
 
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-[14px] border border-line bg-bg-elevated p-5">

@@ -1,6 +1,7 @@
 import type { GenerationRequest, GenerationResult } from "./types";
 import { GenerationServiceError } from "./types";
 import { fetchJsonWithTimeout } from "./fetch-json";
+import { assertCanConsume, consumeUsage } from "@/lib/billing";
 
 function isGenerationResult(value: unknown): value is GenerationResult {
   if (!value || typeof value !== "object") return false;
@@ -18,6 +19,8 @@ function isGenerationResult(value: unknown): value is GenerationResult {
 export async function generateViaApi(
   request: GenerationRequest,
 ): Promise<GenerationResult> {
+  assertCanConsume("generate");
+
   const { response, data } = await fetchJsonWithTimeout(
     "/api/generate",
     {
@@ -47,5 +50,6 @@ export async function generateViaApi(
     );
   }
 
+  consumeUsage("generate");
   return data;
 }

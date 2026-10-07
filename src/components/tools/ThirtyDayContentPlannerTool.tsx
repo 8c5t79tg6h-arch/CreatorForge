@@ -18,7 +18,8 @@ import type {
   ThirtyDayPlannerResult,
 } from "@/lib/domain/types";
 import { copyText } from "@/lib/copy";
-import { generateViaApi, GenerationServiceError } from "@/lib/generation";
+import { generateViaApi } from "@/lib/generation";
+import { formatAiError } from "@/lib/billing";
 
 const platforms: ContentPlatform[] = [
   "YouTube",
@@ -106,13 +107,7 @@ export function ThirtyDayContentPlannerTool() {
         setResult(response.result);
         setStatus(`Built a ${response.result.posts.length}-day plan`);
       } catch (err) {
-        setError(
-          err instanceof GenerationServiceError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "Generation failed",
-        );
+        setError(formatAiError(err, "Generation failed"));
       }
     });
   }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { PlanBanner } from "@/components/billing/PlanBanner";
 import { getAvailableTools, getToolHrefForKind } from "@/data/tools";
 import { useProjects } from "@/hooks/useProjects";
 import {
@@ -55,6 +56,8 @@ export default function DashboardPage() {
           </Link>
         </div>
       </section>
+
+      <PlanBanner compact />
 
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-[14px] border border-line bg-bg-elevated p-5 shadow-[var(--shadow)]">

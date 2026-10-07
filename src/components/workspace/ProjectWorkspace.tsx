@@ -20,7 +20,8 @@ import type {
   ThirtyDayPlannerResult,
 } from "@/lib/domain/types";
 import { copyText } from "@/lib/copy";
-import { generateViaApi, GenerationServiceError } from "@/lib/generation";
+import { generateViaApi } from "@/lib/generation";
+import { formatAiError } from "@/lib/billing";
 import { CONTENT_PLATFORMS, CONTENT_TONES } from "@/lib/generation/catalog";
 import {
   DEFAULT_TAG_OPTIONS,
@@ -253,13 +254,7 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
         });
         setMessage("Review the refined result, then Accept to save a new version.");
       } catch (err) {
-        setError(
-          err instanceof GenerationServiceError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "Refine failed",
-        );
+        setError(formatAiError(err, "Refine failed"));
       }
     });
   }
@@ -350,13 +345,7 @@ export function ProjectWorkspace({ project }: { project: PersistedProject }) {
         });
         setMessage("Review regenerated content, then Accept to save a new version.");
       } catch (err) {
-        setError(
-          err instanceof GenerationServiceError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "Regenerate failed",
-        );
+        setError(formatAiError(err, "Regenerate failed"));
       } finally {
         setRegenerating(false);
       }

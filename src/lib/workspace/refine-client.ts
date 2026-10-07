@@ -1,10 +1,13 @@
 import { GenerationServiceError } from "@/lib/generation/types";
 import type { RefineRequest, RefineResult } from "@/lib/generation/refine";
 import { fetchJsonWithTimeout } from "@/lib/generation/fetch-json";
+import { assertCanConsume, consumeUsage } from "@/lib/billing";
 
 export async function refineViaApi(
   request: RefineRequest,
 ): Promise<RefineResult> {
+  assertCanConsume("refine");
+
   const { response, data } = await fetchJsonWithTimeout(
     "/api/refine",
     {
@@ -22,7 +25,9 @@ export async function refineViaApi(
         : `Refine failed (${response.status})`;
     const code =
       data && typeof data === "object" && "code" in data && data.code
-        ? (String((data as { code?: string }).code) as GenerationServiceError["code"])
+        ? (String(
+            (data as { code?: string }).code,
+          ) as GenerationServiceError["code"])
         : "provider_error";
     throw new GenerationServiceError(code, message);
   }
@@ -48,5 +53,6 @@ export async function refineViaApi(
     );
   }
 
+  consumeUsage("refine");
   return result;
 }

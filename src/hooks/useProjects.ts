@@ -25,6 +25,7 @@ import {
   unsaveContent as unsaveContentRecord,
   updateProject as updateProjectRecord,
 } from "@/lib/persistence";
+import { assertCanCreateProject } from "@/lib/billing";
 
 export function useWorkspace() {
   return useSyncExternalStore(
@@ -41,6 +42,10 @@ export function useProjects() {
   const contents = useMemo(() => listContents(workspace), [workspace]);
 
   const createProject = useCallback((input: CreateProjectInput) => {
+    const activeCount = listProjects().filter(
+      (project) => project.status !== "archived",
+    ).length;
+    assertCanCreateProject(activeCount);
     const project = createProjectRecord(input);
     refreshWorkspace();
     return project;
@@ -100,6 +105,10 @@ export function useProjects() {
       let resolvedProjectId = projectId ?? null;
       let createdProject = false;
       if (!resolvedProjectId) {
+        const activeCount = listProjects().filter(
+          (project) => project.status !== "archived",
+        ).length;
+        assertCanCreateProject(activeCount);
         const project = createProjectRecord({
           name: title.trim() || "Untitled project",
           description: `Saved from ${kind}`,

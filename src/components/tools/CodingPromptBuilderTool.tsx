@@ -13,7 +13,8 @@ import type {
   PromptStyle,
 } from "@/lib/domain/types";
 import { copyText } from "@/lib/copy";
-import { generateViaApi, GenerationServiceError } from "@/lib/generation";
+import { generateViaApi } from "@/lib/generation";
+import { formatAiError } from "@/lib/billing";
 
 const targets: CodingTarget[] = [
   "Web app",
@@ -81,13 +82,7 @@ export function CodingPromptBuilderTool() {
         setResult(response.result);
         setStatus("Prompt ready");
       } catch (err) {
-        setError(
-          err instanceof GenerationServiceError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "Generation failed",
-        );
+        setError(formatAiError(err, "Generation failed"));
       }
     });
   }

@@ -14,7 +14,8 @@ import type {
   ContentType,
 } from "@/lib/domain/types";
 import { copyText } from "@/lib/copy";
-import { generateViaApi, GenerationServiceError } from "@/lib/generation";
+import { generateViaApi } from "@/lib/generation";
+import { formatAiError } from "@/lib/billing";
 
 const platforms: ContentPlatform[] = [
   "YouTube",
@@ -95,13 +96,7 @@ export function ContentIdeaGeneratorTool() {
         setIdeas(response.result.ideas);
         setStatus(`Generated ${response.result.ideas.length} ideas`);
       } catch (err) {
-        setError(
-          err instanceof GenerationServiceError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "Generation failed",
-        );
+        setError(formatAiError(err, "Generation failed"));
       }
     });
   }

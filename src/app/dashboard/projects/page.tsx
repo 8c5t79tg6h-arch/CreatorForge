@@ -16,6 +16,8 @@ import {
   type ProjectSort,
 } from "@/lib/workspace/query";
 import type { PersistedProject } from "@/lib/persistence";
+import { formatAiError } from "@/lib/billing";
+import { PlanBanner } from "@/components/billing/PlanBanner";
 
 const fieldClass =
   "w-full rounded-[12px] border border-line bg-bg px-3 py-2.5 text-sm text-ink outline-none transition focus:border-accent";
@@ -204,15 +206,19 @@ export default function ProjectsPage() {
   function onCreate(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
-    const project = createProject({
-      name,
-      description,
-      status: "draft",
-      tags: [],
-    });
-    setName("");
-    setDescription("");
-    router.push(`/dashboard/projects/${project.id}`);
+    try {
+      const project = createProject({
+        name,
+        description,
+        status: "draft",
+        tags: [],
+      });
+      setName("");
+      setDescription("");
+      router.push(`/dashboard/projects/${project.id}`);
+    } catch (error) {
+      window.alert(formatAiError(error, "Could not create project"));
+    }
   }
 
   function renderCard(project: PersistedProject) {
@@ -282,6 +288,8 @@ export default function ProjectsPage() {
           <Badge tone="neutral">{counts.saved} saved items</Badge>
         </div>
       </section>
+
+      <PlanBanner compact />
 
       <form
         onSubmit={onCreate}
